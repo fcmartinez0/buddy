@@ -133,9 +133,9 @@ class PetViewModel: ObservableObject {
     private func notify(_ message: String, type: GameNotification.NotificationType) {
         let n = GameNotification(message: message, type: type)
         DispatchQueue.main.async {
-            withAnimation { self.notifications.append(n) }
+            self.notifications.append(n)
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                withAnimation { self.notifications.removeAll { $0.id == n.id } }
+                self.notifications.removeAll { $0.id == n.id }
             }
         }
     }
