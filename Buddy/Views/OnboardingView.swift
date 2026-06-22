@@ -6,10 +6,9 @@ struct OnboardingView: View {
 
     @State private var step = 0
     @State private var petName = ""
-    @State private var eggScale: CGFloat = 1.0
-    @State private var eggShake: CGFloat = 0
-    @State private var cracking = false
     @State private var hatched = false
+    @State private var cracking = false
+    @State private var hatchProgress: Double = 0
 
     @FocusState private var nameFocused: Bool
 
@@ -33,10 +32,14 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            Text("🥚")
-                .font(.system(size: 120))
-                .scaleEffect(eggScale)
-                .onAppear { startEggBob() }
+            BuddyCharacterView(
+                stage: .egg,
+                species: .bub,
+                hunger: 80,
+                health: 100,
+                hatchProgress: 0
+            )
+            .frame(width: 200, height: 200)
 
             VStack(spacing: 12) {
                 Text("Something\nis about to hatch.")
@@ -64,9 +67,14 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            Text("🥚")
-                .font(.system(size: 100))
-                .scaleEffect(eggScale)
+            BuddyCharacterView(
+                stage: .egg,
+                species: .bub,
+                hunger: 80,
+                health: 100,
+                hatchProgress: 0
+            )
+            .frame(width: 160, height: 160)
 
             VStack(spacing: 20) {
                 Text("What will you\ncall it?")
@@ -101,35 +109,21 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            ZStack {
-                if hatched {
-                    Text(Pet.EvolutionStage.egg.emoji)
-                        .font(.system(size: 120))
-                        .opacity(0)
-
-                    VStack(spacing: 8) {
-                        Text(Pet.EvolutionStage.baby.emoji)
-                            .font(.system(size: 120))
-                            .scaleEffect(eggScale)
-                            .transition(.scale.combined(with: .opacity))
-
-                        Text("✨")
-                            .font(.system(size: 40))
-                            .opacity(eggScale > 1 ? 1 : 0)
-                    }
-                } else {
-                    Text("🥚")
-                        .font(.system(size: 120))
-                        .rotationEffect(.degrees(eggShake))
-                        .scaleEffect(eggScale)
-                }
+            BuddyCharacterView(
+                stage: hatched ? .baby : .egg,
+                species: .bub,
+                hunger: 80,
+                health: 100,
+                hatchProgress: hatchProgress
+            )
+            .frame(width: 200, height: 200)
+            .onTapGesture {
+                guard !hatched && !cracking else { return }
+                hatchEgg()
             }
-            .frame(height: 180)
 
             VStack(spacing: 12) {
-                Text(hatched
-                     ? "Meet \(petName)! 🎉"
-                     : "Tap the egg.")
+                Text(hatched ? "Meet \(petName)!" : "Tap the egg.")
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .multilineTextAlignment(.center)
                     .padding(.top, 28)
@@ -150,20 +144,13 @@ struct OnboardingView: View {
                 }
                 .padding(.bottom, 48)
             } else {
-                Button {
+                OnboardingButton(label: "Tap to hatch", disabled: cracking) {
                     hatchEgg()
-                } label: {
-                    Text("🥚")
-                        .font(.system(size: 80))
-                        .scaleEffect(cracking ? 1.15 : 1.0)
                 }
-                .buttonStyle(.plain)
                 .padding(.bottom, 48)
-                .disabled(cracking)
             }
         }
         .padding(.horizontal, 32)
-        .onAppear { startEggShake() }
     }
 
     // MARK: - Logic
@@ -177,42 +164,22 @@ struct OnboardingView: View {
     }
 
     func hatchEgg() {
+        guard !cracking && !hatched else { return }
         cracking = true
-        // shake intensifies
-        withAnimation(.easeInOut(duration: 0.07).repeatCount(8, autoreverses: true)) {
-            eggShake = 14
+        withAnimation(.easeInOut(duration: 0.6)) {
+            hatchProgress = 1.0
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
                 hatched = true
-                eggScale = 1.4
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                withAnimation(.spring()) { eggScale = 1.0 }
-            }
+            cracking = false
         }
     }
 
     func finishOnboarding() {
         petVM.rename(petName)
         hasOnboarded = true
-    }
-
-    // MARK: - Animations
-
-    func startEggBob() {
-        withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
-            eggScale = 1.08
-        }
-    }
-
-    func startEggShake() {
-        withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
-            eggShake = 6
-        }
-        withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
-            eggScale = 1.06
-        }
     }
 
     var background: some View {

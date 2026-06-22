@@ -67,7 +67,16 @@ struct Pet: Codable {
         }
     }
 
-    enum Mood { case happy, okay, sad }
+    enum Mood {
+        case happy, okay, sad
+        var label: String {
+            switch self {
+            case .happy: return "Happy"
+            case .okay:  return "Okay"
+            case .sad:   return "Sad"
+            }
+        }
+    }
 
     // MARK: - Hatching progress
 

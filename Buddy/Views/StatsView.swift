@@ -22,8 +22,14 @@ struct StatsView: View {
     var profileSection: some View {
         Section {
             HStack(spacing: 16) {
-                Text(pet.stage.emoji)
-                    .font(.system(size: 60))
+                BuddyCharacterView(
+                    stage: pet.stage,
+                    species: pet.species,
+                    hunger: pet.hunger,
+                    health: pet.health,
+                    hatchProgress: pet.hatchProgress
+                )
+                .frame(width: 64, height: 64)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(pet.name)
@@ -48,13 +54,13 @@ struct StatsView: View {
             HStack {
                 Label("Mood", systemImage: "face.smiling")
                 Spacer()
-                Text("\(pet.mood.emoji) \(pet.mood.label)")
+                Text(pet.mood.label)
                     .foregroundColor(.secondary)
             }
             HStack {
                 Label("Sleeping", systemImage: "moon.fill")
                 Spacer()
-                Text(pet.isSleeping ? "Yes 😴" : "No")
+                Text(pet.isSleeping ? "Yes" : "No")
                     .foregroundColor(.secondary)
             }
         }
@@ -84,7 +90,7 @@ struct StatsView: View {
             HStack {
                 Label("Coins", systemImage: "dollarsign.circle.fill")
                 Spacer()
-                Text("🪙 \(pet.coins)")
+                Text("\(pet.coins)")
                     .foregroundColor(.secondary)
             }
             evolutionProgress
@@ -98,9 +104,9 @@ struct StatsView: View {
             HStack(spacing: 0) {
                 ForEach(Pet.EvolutionStage.allCases, id: \.self) { stage in
                     VStack(spacing: 4) {
-                        Text(stage.emoji)
-                            .font(.title3)
-                            .opacity(pet.stage.order >= stage.order ? 1.0 : 0.3)
+                        Circle()
+                            .fill(pet.stage.order >= stage.order ? Color.purple : Color.secondary.opacity(0.25))
+                            .frame(width: 12, height: 12)
                         Text(stage.displayName)
                             .font(.system(size: 8))
                             .foregroundColor(pet.stage == stage ? .purple : .secondary)
@@ -111,7 +117,7 @@ struct StatsView: View {
                         Rectangle()
                             .fill(pet.stage.order > stage.order ? Color.purple : Color.secondary.opacity(0.3))
                             .frame(height: 2)
-                            .offset(y: -10)
+                            .offset(y: -8)
                     }
                 }
             }
