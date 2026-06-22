@@ -31,6 +31,8 @@ struct Pet: Codable {
 
         var displayName: String { rawValue.capitalized }
 
+        var order: Int { Pet.EvolutionStage.allCases.firstIndex(of: self) ?? 0 }
+
         var xpToNext: Int {
             switch self {
             case .egg:   return 30

@@ -100,7 +100,7 @@ struct StatsView: View {
                     VStack(spacing: 4) {
                         Text(stage.emoji)
                             .font(.title3)
-                            .opacity(pet.stage.rawValue >= stage.rawValue ? 1.0 : 0.3)
+                            .opacity(pet.stage.order >= stage.order ? 1.0 : 0.3)
                         Text(stage.displayName)
                             .font(.system(size: 8))
                             .foregroundColor(pet.stage == stage ? .purple : .secondary)
@@ -109,7 +109,7 @@ struct StatsView: View {
 
                     if stage != .adult {
                         Rectangle()
-                            .fill(pet.stage.rawValue > stage.rawValue ? Color.purple : Color.secondary.opacity(0.3))
+                            .fill(pet.stage.order > stage.order ? Color.purple : Color.secondary.opacity(0.3))
                             .frame(height: 2)
                             .offset(y: -10)
                     }
