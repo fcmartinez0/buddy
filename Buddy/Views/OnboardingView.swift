@@ -10,7 +10,6 @@ struct OnboardingView: View {
     @State private var eggShake: CGFloat = 0
     @State private var cracking = false
     @State private var hatched = false
-    @State private var nameFieldFocused = false
 
     @FocusState private var nameFocused: Bool
 
