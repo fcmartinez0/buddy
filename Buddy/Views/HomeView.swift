@@ -122,7 +122,6 @@ struct HomeView: View {
                     pulsePet()
                 }
                 ActionButton(icon: "hand.point.up.left.fill", label: "Pet", color: .pink) {
-                    petVM.earnCoins(0)
                     petVM.pet.happiness = min(100, petVM.pet.happiness + 8)
                     petVM.save()
                     pulsePet()
