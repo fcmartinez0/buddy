@@ -20,6 +20,7 @@
 		AA201011 /* MiniGamesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA101011 /* MiniGamesView.swift */; };
 		AA201012 /* BeetleFarmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA101012 /* BeetleFarmView.swift */; };
 		AA201013 /* TapRushView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA101013 /* TapRushView.swift */; };
+		AA201014 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA101014 /* OnboardingView.swift */; };
 		AA202001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA102001 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -37,6 +38,7 @@
 		AA101011 /* MiniGamesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniGamesView.swift; sourceTree = "<group>"; };
 		AA101012 /* BeetleFarmView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeetleFarmView.swift; sourceTree = "<group>"; };
 		AA101013 /* TapRushView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapRushView.swift; sourceTree = "<group>"; };
+		AA101014 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		AA102001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA104001 /* Buddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Buddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -99,6 +101,7 @@
 				AA101009 /* ShopView.swift */,
 				AA101010 /* StatsView.swift */,
 				AA101011 /* MiniGamesView.swift */,
+				AA101014 /* OnboardingView.swift */,
 				AA401006 /* Games */,
 			);
 			path = Views;
@@ -203,6 +206,7 @@
 				AA201011 /* MiniGamesView.swift in Sources */,
 				AA201012 /* BeetleFarmView.swift in Sources */,
 				AA201013 /* TapRushView.swift in Sources */,
+				AA201014 /* OnboardingView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
