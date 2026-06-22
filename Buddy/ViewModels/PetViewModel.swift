@@ -168,7 +168,10 @@ class PetViewModel: ObservableObject {
         fresh.name = pet.name
         pet = fresh
         save()
-        startPedometerIfEgg()
+        // Auto-hatch after a short delay so the egg is briefly visible
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.devHatchNow()
+        }
     }
 
     func devHatchNow() {
