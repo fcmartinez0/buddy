@@ -8,6 +8,7 @@ class PetViewModel: ObservableObject {
     @Published var evolutionStage: Pet.EvolutionStage? = nil
 
     private var timer: Timer?
+    private let pedometer = PedometerManager()
     private let saveKey = "buddy_v1_pet"
 
     init() {
@@ -19,9 +20,10 @@ class PetViewModel: ObservableObject {
             pet = Pet()
         }
         startGameLoop()
+        startPedometerIfEgg()
     }
 
-    // MARK: - Game Loop
+    // MARK: - Game loop
 
     private func startGameLoop() {
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
@@ -36,12 +38,51 @@ class PetViewModel: ObservableObject {
     }
 
     private func applyOfflineProgress() {
+        guard pet.stage != .egg else { return }
         let elapsed = Date().timeIntervalSince(pet.lastUpdated) / 60
-        let cappedMinutes = min(elapsed, 60 * 12) // cap at 12 hours offline
-        if cappedMinutes > 1 {
-            pet.applyDecay(minutes: cappedMinutes)
-            save()
+        let capped = min(elapsed, 60 * 12)
+        if capped > 1 { pet.applyDecay(minutes: capped) }
+        save()
+    }
+
+    // MARK: - Pedometer / egg hatching
+
+    private func startPedometerIfEgg() {
+        guard pet.stage == .egg else { return }
+
+        // First, sync any distance accumulated while the app was closed
+        pedometer.queryDistance(from: pet.eggCreatedDate) { [weak self] meters in
+            guard let self else { return }
+            self.pet.eggDistanceWalked = meters
+            self.checkHatch()
+            self.save()
         }
+
+        // Then keep updating live
+        pedometer.startUpdates(from: pet.eggCreatedDate) { [weak self] meters in
+            guard let self, self.pet.stage == .egg else { return }
+            self.pet.eggDistanceWalked = meters
+            self.checkHatch()
+            self.save()
+        }
+    }
+
+    private func checkHatch() {
+        guard pet.isReadyToHatch else { return }
+        hatch()
+    }
+
+    private func hatch() {
+        guard pet.stage == .egg else { return }
+        pet.stage = .baby
+        pet.hunger    = 80
+        pet.happiness = 80
+        pet.health    = 100
+        evolutionStage = .baby
+        showEvolution  = true
+        pedometer.stopUpdates()
+        notify("It hatched!", type: .reward)
+        save()
     }
 
     // MARK: - Actions
@@ -54,16 +95,12 @@ class PetViewModel: ObservableObject {
         if pet.foodInventory[food.id] == 0 { pet.foodInventory.removeValue(forKey: food.id) }
         pet.totalFeedings += 1
         addXP(10)
-        notify("Yum! \(food.emoji)", type: .reward)
         save()
     }
 
     func buyFood(_ food: FoodItem, quantity: Int = 1) {
         let cost = food.cost * quantity
-        guard pet.coins >= cost else {
-            notify("Not enough coins 🪙", type: .warning)
-            return
-        }
+        guard pet.coins >= cost else { return }
         pet.coins -= cost
         pet.foodInventory[food.id, default: 0] += quantity
         save()
@@ -74,13 +111,11 @@ class PetViewModel: ObservableObject {
         pet.happiness = min(100, pet.happiness + 5)
         pet.totalGamesPlayed += 1
         addXP(amount / 2)
-        notify("+\(amount) coins 🪙", type: .reward)
         save()
     }
 
     func toggleSleep() {
         pet.isSleeping.toggle()
-        notify(pet.isSleeping ? "Nighty night 😴" : "Good morning! ☀️", type: .reward)
         save()
     }
 
@@ -91,7 +126,7 @@ class PetViewModel: ObservableObject {
         save()
     }
 
-    // MARK: - XP & Evolution
+    // MARK: - XP & evolution
 
     private func addXP(_ amount: Int) {
         pet.xp += amount
@@ -99,33 +134,54 @@ class PetViewModel: ObservableObject {
             pet.xp -= pet.xpToNextLevel
             pet.level += 1
         }
-        checkEvolution()
+        checkLevelEvolution()
     }
 
-    private func checkEvolution() {
+    // Egg → Baby is pedometer-only. All later stages are level-gated.
+    private func checkLevelEvolution() {
         let next: Pet.EvolutionStage? = {
             switch pet.stage {
-            case .egg   where pet.level >= 2:  return .baby
             case .baby  where pet.level >= 6:  return .child
             case .child where pet.level >= 15: return .teen
             case .teen  where pet.level >= 30: return .adult
             default: return nil
             }
         }()
-
         guard let next else { return }
+        triggerEvolution(to: next)
+    }
+
+    private func triggerEvolution(to next: Pet.EvolutionStage) {
         pet.stage = next
         evolutionStage = next
         showEvolution = true
-        notify("\(pet.name) evolved into \(next.displayName)! \(next.emoji)", type: .reward)
+        notify("\(pet.name) evolved into a \(next.displayName)!", type: .reward)
+        save()
+    }
+
+    // MARK: - Dev tools
+
+    func devResetAsEgg(species: Pet.PetSpecies) {
+        pedometer.stopUpdates()
+        var fresh = Pet()
+        fresh.species = species
+        fresh.name = pet.name
+        pet = fresh
+        save()
+        startPedometerIfEgg()
+    }
+
+    func devHatchNow() {
+        guard pet.stage == .egg else { return }
+        pet.eggDistanceWalked = Pet.hatchDistanceMeters
+        hatch()
     }
 
     // MARK: - Warnings
 
     private func checkWarnings() {
-        if pet.hunger    < 20 { notify("\(pet.name) is starving! 😰", type: .warning) }
-        if pet.happiness < 20 { notify("\(pet.name) is really sad 😢", type: .warning) }
-        if pet.health    < 20 { notify("\(pet.name) needs care! ❤️", type: .warning) }
+        if pet.hunger < 20 { notify("\(pet.name) is starving!", type: .warning) }
+        if pet.health < 20 { notify("\(pet.name) needs care!", type: .warning) }
     }
 
     // MARK: - Notifications
@@ -149,7 +205,9 @@ class PetViewModel: ObservableObject {
     }
 
     func resetPet() {
+        pedometer.stopUpdates()
         pet = Pet()
         save()
+        startPedometerIfEgg()
     }
 }

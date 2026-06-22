@@ -4,6 +4,7 @@ struct HomeView: View {
     @EnvironmentObject var petVM: PetViewModel
     @State private var showRename = false
     @State private var newName = ""
+    @State private var showDevPanel = false
 
     var pet: Pet { petVM.pet }
 
@@ -21,11 +22,16 @@ struct HomeView: View {
 
                         BuddyCharacterView(
                             stage: pet.stage,
+                            species: pet.species,
                             hunger: pet.hunger,
-                            health: pet.health
+                            health: pet.health,
+                            hatchProgress: pet.hatchProgress
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .padding(.horizontal, 24)
+                        .onLongPressGesture(minimumDuration: 1.0) {
+                            showDevPanel = true
+                        }
                     }
                     .frame(height: geo.size.height * 0.74)
 
@@ -46,6 +52,10 @@ struct HomeView: View {
                 .autocorrectionDisabled()
             Button("Save") { petVM.rename(newName) }
             Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showDevPanel) {
+            DevPanel()
+                .environmentObject(petVM)
         }
     }
 
@@ -76,15 +86,36 @@ struct HomeView: View {
             Divider()
                 .padding(.horizontal, 28)
 
-            VStack(spacing: 14) {
-                HomeStatRow(label: "Hunger", value: pet.hunger,
-                            fill: Color(red: 1.0, green: 0.62, blue: 0.26))
-                HomeStatRow(label: "Health", value: pet.health,
-                            fill: Color(red: 0.30, green: 0.80, blue: 0.55))
+            if pet.stage == .egg {
+                eggStatsPanel
+            } else {
+                VStack(spacing: 14) {
+                    HomeStatRow(label: "Hunger", value: pet.hunger,
+                                fill: Color(red: 1.0, green: 0.62, blue: 0.26))
+                    HomeStatRow(label: "Health", value: pet.health,
+                                fill: Color(red: 0.30, green: 0.80, blue: 0.55))
+                }
+                .padding(.horizontal, 32)
+                .padding(.top, 18)
             }
-            .padding(.horizontal, 32)
-            .padding(.top, 18)
         }
+    }
+
+    var eggStatsPanel: some View {
+        VStack(spacing: 8) {
+            HomeStatRow(
+                label: "Walk",
+                value: pet.hatchProgress * 100,
+                fill: Color(red: 0.45, green: 0.72, blue: 0.95)
+            )
+            .padding(.horizontal, 32)
+
+            let walked = Int(pet.eggDistanceWalked / 1000 * 10) / 10
+            Text("\(walked, format: .number.precision(.fractionLength(1))) / 5.0 km to hatch")
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundColor(Color(white: 0.55))
+        }
+        .padding(.top, 18)
     }
 }
 
@@ -171,6 +202,77 @@ struct EvolutionOverlay: View {
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.65)) {
                     scale = 1
                     opacity = 1
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Dev panel
+
+struct DevPanel: View {
+    @EnvironmentObject var petVM: PetViewModel
+    @Environment(\.dismiss) var dismiss
+
+    var pet: Pet { petVM.pet }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    if pet.stage == .egg {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Hatch progress")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            ProgressView(value: pet.hatchProgress)
+                                .tint(.blue)
+                            Text(String(format: "%.0f / %.0f m", pet.eggDistanceWalked, Pet.hatchDistanceMeters))
+                                .font(.caption.monospacedDigit())
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 4)
+
+                        Button("Hatch Now") {
+                            petVM.devHatchNow()
+                            dismiss()
+                        }
+                        .foregroundColor(.blue)
+                    }
+                } header: { Text("Egg") }
+
+                Section {
+                    ForEach(Pet.PetSpecies.allCases, id: \.self) { species in
+                        Button {
+                            petVM.devResetAsEgg(species: species)
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Text("Reset as \(species.displayName)")
+                                if pet.species == species && pet.stage == .egg {
+                                    Spacer()
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        .foregroundColor(.primary)
+                    }
+                } header: { Text("Reset") }
+
+                Section {
+                    LabeledContent("Species",  value: pet.species.displayName)
+                    LabeledContent("Stage",    value: pet.stage.displayName)
+                    LabeledContent("Level",    value: "\(pet.level)")
+                    LabeledContent("Hunger",   value: String(format: "%.0f", pet.hunger))
+                    LabeledContent("Health",   value: String(format: "%.0f", pet.health))
+                } header: { Text("Current state") }
+            }
+            .navigationTitle("Dev Options")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
                 }
             }
         }

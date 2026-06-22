@@ -4,23 +4,30 @@ import SwiftUI
 
 struct BuddyCharacterView: View {
     let stage: Pet.EvolutionStage
+    let species: Pet.PetSpecies
     let hunger: Double
     let health: Double
+    var hatchProgress: Double = 0   // 0–1, only used during egg stage
 
     @State private var bounceOffset: CGFloat = 0
     @State private var blinkOpacity: Double = 1
+    @State private var wobbleAngle: Double = 0
 
     private var isSad: Bool    { (hunger + health) / 2 < 35 }
     private var isHappy: Bool  { (hunger + health) / 2 > 65 }
     private var smileAmount: Double { isHappy ? 0.78 : isSad ? -0.52 : 0.12 }
 
     private var bodyColor: Color {
-        switch stage {
-        case .egg:   return Color(red: 0.94, green: 0.91, blue: 0.84)
-        case .baby:  return Color(red: 0.72, green: 0.87, blue: 0.97)
-        case .child: return Color(red: 0.70, green: 0.92, blue: 0.76)
-        case .teen:  return Color(red: 0.80, green: 0.73, blue: 0.96)
-        case .adult: return Color(red: 0.97, green: 0.73, blue: 0.73)
+        switch (species, stage) {
+        case (_, .egg):             return Color(red: 0.94, green: 0.91, blue: 0.84)
+        case (.bub, .baby):         return Color(red: 0.72, green: 0.87, blue: 0.97)
+        case (.bub, .child):        return Color(red: 0.70, green: 0.92, blue: 0.76)
+        case (.bub, .teen):         return Color(red: 0.80, green: 0.73, blue: 0.96)
+        case (.bub, .adult):        return Color(red: 0.97, green: 0.73, blue: 0.73)
+        case (.fin, .baby):         return Color(red: 0.97, green: 0.88, blue: 0.70)
+        case (.fin, .child):        return Color(red: 0.97, green: 0.76, blue: 0.60)
+        case (.fin, .teen):         return Color(red: 0.95, green: 0.65, blue: 0.50)
+        case (.fin, .adult):        return Color(red: 0.90, green: 0.50, blue: 0.40)
         }
     }
 
@@ -39,53 +46,110 @@ struct BuddyCharacterView: View {
                     .blur(radius: 12)
                     .offset(y: size * 0.5 + bounceOffset * 0.25 + 8)
 
-                // Ears — baby and child only
-                if stage == .baby || stage == .child {
-                    let earSize = stage == .baby ? size * 0.17 : size * 0.22
-                    HStack(spacing: size * 0.54) {
-                        earView(size: earSize)
-                        earView(size: earSize)
-                    }
-                    .offset(y: -size * 0.37)
-                }
-
-                // Body
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [bodyColor.opacity(0.52), bodyColor],
-                            center: UnitPoint(x: 0.38, y: 0.30),
-                            startRadius: 0,
-                            endRadius: size * 0.65
-                        )
-                    )
-                    .frame(width: size, height: size)
-
-                // Face
-                VStack(spacing: size * 0.09) {
-                    HStack(spacing: size * 0.21) {
-                        BuddyEye(size: eyeSize, sad: isSad,
-                                 bodyColor: bodyColor, blinkOpacity: blinkOpacity)
-                        BuddyEye(size: eyeSize, sad: isSad,
-                                 bodyColor: bodyColor, blinkOpacity: blinkOpacity)
+                if stage == .egg {
+                    eggBody(size: size)
+                } else {
+                    // Ears — baby and child only
+                    if stage == .baby || stage == .child {
+                        let earSize = stage == .baby ? size * 0.17 : size * 0.22
+                        HStack(spacing: size * 0.54) {
+                            earView(size: earSize)
+                            earView(size: earSize)
+                        }
+                        .offset(y: -size * 0.37)
                     }
 
-                    BuddyMouthShape(smile: smileAmount)
-                        .stroke(
-                            Color(white: 0.18).opacity(0.72),
-                            style: StrokeStyle(lineWidth: mouthW * 0.11, lineCap: .round)
+                    // Body
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [bodyColor.opacity(0.52), bodyColor],
+                                center: UnitPoint(x: 0.38, y: 0.30),
+                                startRadius: 0,
+                                endRadius: size * 0.65
+                            )
                         )
-                        .frame(width: mouthW, height: mouthH)
-                        .animation(.spring(response: 0.5), value: smileAmount)
+                        .frame(width: size, height: size)
+
+                    // Face
+                    VStack(spacing: size * 0.09) {
+                        HStack(spacing: size * 0.21) {
+                            BuddyEye(size: eyeSize, sad: isSad,
+                                     bodyColor: bodyColor, blinkOpacity: blinkOpacity)
+                            BuddyEye(size: eyeSize, sad: isSad,
+                                     bodyColor: bodyColor, blinkOpacity: blinkOpacity)
+                        }
+
+                        BuddyMouthShape(smile: smileAmount)
+                            .stroke(
+                                Color(white: 0.18).opacity(0.72),
+                                style: StrokeStyle(lineWidth: mouthW * 0.11, lineCap: .round)
+                            )
+                            .frame(width: mouthW, height: mouthH)
+                            .animation(.spring(response: 0.5), value: smileAmount)
+                    }
+                    .offset(y: size * 0.05)
                 }
-                .offset(y: size * 0.05)
             }
-            .offset(y: bounceOffset)
+            .rotationEffect(stage == .egg ? .degrees(wobbleAngle) : .zero)
+            .offset(y: stage == .egg ? 0 : bounceOffset)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear {
-            startBounce()
-            startBlink()
+            if stage == .egg { startWobble() } else { startBounce(); startBlink() }
+        }
+        .onChange(of: stage) { newStage in
+            if newStage != .egg { startBounce(); startBlink() }
+        }
+    }
+
+    // MARK: - Egg appearance
+
+    private func eggBody(size: CGFloat) -> some View {
+        let eggW = size * 0.68
+        let eggH = size * 0.84
+
+        return ZStack {
+            // Shadow
+            Ellipse()
+                .fill(Color.black.opacity(0.06))
+                .frame(width: eggW * 0.75, height: eggH * 0.09)
+                .blur(radius: 10)
+                .offset(y: eggH * 0.52)
+
+            // Egg body
+            Ellipse()
+                .fill(
+                    RadialGradient(
+                        colors: [bodyColor.opacity(0.45), bodyColor],
+                        center: UnitPoint(x: 0.38, y: 0.28),
+                        startRadius: 0,
+                        endRadius: eggH * 0.6
+                    )
+                )
+                .frame(width: eggW, height: eggH)
+
+            // Hatch progress arc along bottom of egg
+            if hatchProgress > 0 {
+                Circle()
+                    .trim(from: 0, to: hatchProgress)
+                    .stroke(
+                        Color(white: 0.30).opacity(0.25),
+                        style: StrokeStyle(lineWidth: eggW * 0.03, lineCap: .round, dash: [4, 5])
+                    )
+                    .frame(width: eggW * 0.55, height: eggW * 0.55)
+                    .rotationEffect(.degrees(-90))
+                    .offset(y: eggH * 0.14)
+            }
+        }
+    }
+
+    private func startWobble() {
+        // Idle gentle rock; speeds up as egg gets close to hatching
+        let intensity = 3.0 + hatchProgress * 5.0
+        let duration  = 1.4 - hatchProgress * 0.5
+        withAnimation(.easeInOut(duration: duration).repeatForever(autoreverses: true)) {
+            wobbleAngle = intensity
         }
     }
 

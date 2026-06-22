@@ -21,6 +21,7 @@
 		AA201012 /* BeetleFarmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA101012 /* BeetleFarmView.swift */; };
 		AA201013 /* TapRushView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA101013 /* TapRushView.swift */; };
 		AA201014 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA101014 /* OnboardingView.swift */; };
+		AA201016 /* PedometerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA101016 /* PedometerManager.swift */; };
 		AA201015 /* BuddyCharacterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA101015 /* BuddyCharacterView.swift */; };
 		AA202001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA102001 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -31,6 +32,7 @@
 		AA101003 /* Pet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pet.swift; sourceTree = "<group>"; };
 		AA101004 /* FoodItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodItem.swift; sourceTree = "<group>"; };
 		AA101005 /* BeetleGame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeetleGame.swift; sourceTree = "<group>"; };
+		AA101016 /* PedometerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedometerManager.swift; sourceTree = "<group>"; };
 		AA101006 /* PetViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetViewModel.swift; sourceTree = "<group>"; };
 		AA101007 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		AA101008 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
@@ -82,6 +84,7 @@
 			children = (
 				AA101003 /* Pet.swift */,
 				AA101004 /* FoodItem.swift */,
+				AA101016 /* PedometerManager.swift */,
 				AA101005 /* BeetleGame.swift */,
 			);
 			path = Models;
@@ -211,6 +214,7 @@
 				AA201013 /* TapRushView.swift in Sources */,
 				AA201014 /* OnboardingView.swift in Sources */,
 				AA201015 /* BuddyCharacterView.swift in Sources */,
+				AA201016 /* PedometerManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -346,6 +350,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_NSMotionUsageDescription = "Buddy uses motion data to track your walking distance for egg hatching.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -375,6 +380,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_NSMotionUsageDescription = "Buddy uses motion data to track your walking distance for egg hatching.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";

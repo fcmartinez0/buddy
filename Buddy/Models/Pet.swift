@@ -2,7 +2,8 @@ import Foundation
 
 struct Pet: Codable {
     var name: String = "Buddy"
-    var hunger: Double = 80       // 0 = starving, 100 = full
+    var species: PetSpecies = .bub
+    var hunger: Double = 80
     var happiness: Double = 70
     var health: Double = 100
     var ageInMinutes: Int = 0
@@ -16,26 +17,37 @@ struct Pet: Codable {
     var totalGamesPlayed: Int = 0
     var foodInventory: [String: Int] = ["apple": 3, "cookie": 1]
 
+    // Egg hatching
+    var eggCreatedDate: Date = Date()
+    var eggDistanceWalked: Double = 0   // meters accumulated
+
+    static let hatchDistanceMeters: Double = 5000
+
+    // MARK: - Species
+
+    enum PetSpecies: String, Codable, CaseIterable {
+        case bub    // round blob — placeholder name, rename when art arrives
+        case fin    // second character — placeholder name
+
+        var displayName: String {
+            switch self {
+            case .bub: return "Bub"
+            case .fin: return "Fin"
+            }
+        }
+    }
+
+    // MARK: - Evolution stage
+
     enum EvolutionStage: String, Codable, CaseIterable {
         case egg, baby, child, teen, adult
 
-        var emoji: String {
-            switch self {
-            case .egg:   return "🥚"
-            case .baby:  return "🐣"
-            case .child: return "🐥"
-            case .teen:  return "🦎"
-            case .adult: return "🐉"
-            }
-        }
-
         var displayName: String { rawValue.capitalized }
-
         var order: Int { Pet.EvolutionStage.allCases.firstIndex(of: self) ?? 0 }
 
         var xpToNext: Int {
             switch self {
-            case .egg:   return 30
+            case .egg:   return 0           // egg hatches by walking, not XP
             case .baby:  return 150
             case .child: return 400
             case .teen:  return 800
@@ -44,40 +56,30 @@ struct Pet: Codable {
         }
     }
 
+    // MARK: - Mood (derived from hunger + health)
+
     var mood: Mood {
-        let avg = (hunger + happiness + health) / 3
+        let avg = (hunger + health) / 2
         switch avg {
-        case 80...100: return .ecstatic
-        case 60..<80:  return .happy
-        case 40..<60:  return .okay
-        case 20..<40:  return .sad
-        default:       return .critical
+        case 75...100: return .happy
+        case 40..<75:  return .okay
+        default:       return .sad
         }
     }
 
-    enum Mood {
-        case ecstatic, happy, okay, sad, critical
+    enum Mood { case happy, okay, sad }
 
-        var emoji: String {
-            switch self {
-            case .ecstatic: return "😄"
-            case .happy:    return "😊"
-            case .okay:     return "😐"
-            case .sad:      return "😢"
-            case .critical: return "😰"
-            }
-        }
+    // MARK: - Hatching progress
 
-        var label: String {
-            switch self {
-            case .ecstatic: return "Ecstatic!"
-            case .happy:    return "Happy"
-            case .okay:     return "Okay"
-            case .sad:      return "Sad"
-            case .critical: return "Needs help!"
-            }
-        }
+    var hatchProgress: Double {
+        min(eggDistanceWalked / Pet.hatchDistanceMeters, 1.0)
     }
+
+    var isReadyToHatch: Bool {
+        stage == .egg && eggDistanceWalked >= Pet.hatchDistanceMeters
+    }
+
+    // MARK: - Misc
 
     var xpToNextLevel: Int { level * 50 }
 
@@ -89,7 +91,10 @@ struct Pet: Codable {
         return "\(ageInMinutes)m"
     }
 
+    // MARK: - Decay (egg ignores decay)
+
     mutating func applyDecay(minutes: Double) {
+        guard stage != .egg else { return }
         let rate = isSleeping ? 0.3 : 1.0
         hunger    = max(0, hunger    - minutes * 0.8 * rate)
         happiness = max(0, happiness - minutes * 0.5 * rate)
