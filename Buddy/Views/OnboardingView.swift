@@ -110,7 +110,7 @@ struct OnboardingView: View {
             Spacer()
 
             BuddyCharacterView(
-                stage: hatched ? .baby : .egg,
+                stage: hatched ? .level0 : .egg,
                 species: .bub,
                 hunger: 80,
                 health: 100,

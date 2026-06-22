@@ -19,15 +19,15 @@ struct BuddyCharacterView: View {
 
     private var bodyColor: Color {
         switch (species, stage) {
-        case (_, .egg):             return Color(red: 0.94, green: 0.91, blue: 0.84)
-        case (.bub, .baby):         return Color(red: 0.72, green: 0.87, blue: 0.97)
-        case (.bub, .child):        return Color(red: 0.70, green: 0.92, blue: 0.76)
-        case (.bub, .teen):         return Color(red: 0.80, green: 0.73, blue: 0.96)
-        case (.bub, .adult):        return Color(red: 0.97, green: 0.73, blue: 0.73)
-        case (.fin, .baby):         return Color(red: 0.97, green: 0.88, blue: 0.70)
-        case (.fin, .child):        return Color(red: 0.97, green: 0.76, blue: 0.60)
-        case (.fin, .teen):         return Color(red: 0.95, green: 0.65, blue: 0.50)
-        case (.fin, .adult):        return Color(red: 0.90, green: 0.50, blue: 0.40)
+        case (_, .egg):              return Color(red: 0.94, green: 0.91, blue: 0.84)
+        case (.bub, .level0):        return Color(red: 0.72, green: 0.87, blue: 0.97)
+        case (.bub, .level1):        return Color(red: 0.70, green: 0.92, blue: 0.76)
+        case (.bub, .level2):        return Color(red: 0.80, green: 0.73, blue: 0.96)
+        case (.bub, .level3):        return Color(red: 0.97, green: 0.73, blue: 0.73)
+        case (.fin, .level0):        return Color(red: 0.97, green: 0.88, blue: 0.70)
+        case (.fin, .level1):        return Color(red: 0.97, green: 0.76, blue: 0.60)
+        case (.fin, .level2):        return Color(red: 0.95, green: 0.65, blue: 0.50)
+        case (.fin, .level3):        return Color(red: 0.90, green: 0.50, blue: 0.40)
         }
     }
 
@@ -50,8 +50,8 @@ struct BuddyCharacterView: View {
                     eggBody(size: size)
                 } else {
                     // Ears — baby and child only
-                    if stage == .baby || stage == .child {
-                        let earSize = stage == .baby ? size * 0.17 : size * 0.22
+                    if stage == .level0 || stage == .level1 {
+                        let earSize = stage == .level0 ? size * 0.17 : size * 0.22
                         HStack(spacing: size * 0.54) {
                             earView(size: earSize)
                             earView(size: earSize)

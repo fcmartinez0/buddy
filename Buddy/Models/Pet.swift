@@ -40,20 +40,18 @@ struct Pet: Codable {
     // MARK: - Evolution stage
 
     enum EvolutionStage: String, Codable, CaseIterable {
-        case egg, baby, child, teen, adult
+        case egg, level0, level1, level2, level3
 
-        var displayName: String { rawValue.capitalized }
-        var order: Int { Pet.EvolutionStage.allCases.firstIndex(of: self) ?? 0 }
-
-        var xpToNext: Int {
+        var displayName: String {
             switch self {
-            case .egg:   return 0           // egg hatches by walking, not XP
-            case .baby:  return 150
-            case .child: return 400
-            case .teen:  return 800
-            case .adult: return Int.max
+            case .egg:    return "Egg"
+            case .level0: return "Level 0"
+            case .level1: return "Level 1"
+            case .level2: return "Level 2"
+            case .level3: return "Level 3"
             }
         }
+        var order: Int { Pet.EvolutionStage.allCases.firstIndex(of: self) ?? 0 }
     }
 
     // MARK: - Mood (derived from hunger + health)

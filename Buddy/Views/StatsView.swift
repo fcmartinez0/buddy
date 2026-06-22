@@ -113,7 +113,7 @@ struct StatsView: View {
                     }
                     .frame(maxWidth: .infinity)
 
-                    if stage != .adult {
+                    if stage != .level3 {
                         Rectangle()
                             .fill(pet.stage.order > stage.order ? Color.purple : Color.secondary.opacity(0.3))
                             .frame(height: 2)

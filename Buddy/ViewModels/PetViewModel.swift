@@ -74,11 +74,11 @@ class PetViewModel: ObservableObject {
 
     private func hatch() {
         guard pet.stage == .egg else { return }
-        pet.stage = .baby
+        pet.stage = .level0
         pet.hunger    = 80
         pet.happiness = 80
         pet.health    = 100
-        evolutionStage = .baby
+        evolutionStage = .level0
         showEvolution  = true
         pedometer.stopUpdates()
         notify("It hatched!", type: .reward)
@@ -141,9 +141,9 @@ class PetViewModel: ObservableObject {
     private func checkLevelEvolution() {
         let next: Pet.EvolutionStage? = {
             switch pet.stage {
-            case .baby  where pet.level >= 6:  return .child
-            case .child where pet.level >= 15: return .teen
-            case .teen  where pet.level >= 30: return .adult
+            case .level0 where pet.level >= 6:  return .level1
+            case .level1 where pet.level >= 15: return .level2
+            case .level2 where pet.level >= 30: return .level3
             default: return nil
             }
         }()
