@@ -2,267 +2,173 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var petVM: PetViewModel
-    @State private var petScale: CGFloat = 1.0
-    @State private var petOffset: CGFloat = 0
     @State private var showRename = false
     @State private var newName = ""
 
+    var pet: Pet { petVM.pet }
+
     var body: some View {
-        ZStack {
-            background
+        GeometryReader { geo in
+            ZStack {
+                Color(red: 0.97, green: 0.96, blue: 0.94)
+                    .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                topBar
-                    .padding(.top, 8)
+                VStack(spacing: 0) {
+                    // ── Top 75 % : info header + character ──────────────────
+                    VStack(spacing: 0) {
+                        petHeader
+                            .padding(.top, 20)
 
-                Spacer()
+                        BuddyCharacterView(
+                            stage: pet.stage,
+                            hunger: pet.hunger,
+                            health: pet.health
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(.horizontal, 24)
+                    }
+                    .frame(height: geo.size.height * 0.74)
 
-                petDisplay
+                    // ── Bottom 26 % : hunger + health ────────────────────────
+                    statsPanel
+                        .frame(height: geo.size.height * 0.26)
+                }
 
-                Spacer()
-
-                statsPanel
-                    .padding(.bottom, 8)
-            }
-
-            if petVM.showEvolution {
-                EvolutionOverlay(stage: petVM.evolutionStage ?? petVM.pet.stage) {
-                    petVM.showEvolution = false
+                if petVM.showEvolution {
+                    EvolutionOverlay(stage: petVM.evolutionStage ?? pet.stage) {
+                        petVM.showEvolution = false
+                    }
                 }
             }
         }
-        .onAppear { startIdleAnimation() }
         .alert("Rename", isPresented: $showRename) {
             TextField("Name", text: $newName)
+                .autocorrectionDisabled()
             Button("Save") { petVM.rename(newName) }
             Button("Cancel", role: .cancel) {}
         }
     }
 
-    // MARK: - Subviews
+    // MARK: - Header
 
-    var background: some View {
-        LinearGradient(
-            colors: [Color(.systemIndigo).opacity(0.15), Color(.systemPurple).opacity(0.08)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
-    }
-
-    var topBar: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Button {
-                    newName = petVM.pet.name
-                    showRename = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(petVM.pet.name)
-                            .font(.title2.bold())
-                        Image(systemName: "pencil.circle.fill")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .foregroundColor(.primary)
-
-                Text("Lv.\(petVM.pet.level) · \(petVM.pet.stage.displayName) · Age \(petVM.pet.ageDisplay)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+    var petHeader: some View {
+        VStack(spacing: 5) {
+            Button {
+                newName = pet.name
+                showRename = true
+            } label: {
+                Text(pet.name)
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .foregroundColor(Color(white: 0.12))
             }
 
-            Spacer()
-
-            HStack(spacing: 4) {
-                Text("🪙")
-                Text("\(petVM.pet.coins)")
-                    .font(.headline.bold())
-                    .monospacedDigit()
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(.yellow.opacity(0.2))
-            .cornerRadius(20)
+            Text("Level \(pet.level)  ·  \(pet.stage.displayName)  ·  \(pet.ageDisplay) old")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundColor(Color(white: 0.50))
         }
-        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity)
     }
 
-    var petDisplay: some View {
-        VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [stageColor.opacity(0.3), stageColor.opacity(0.05)],
-                            center: .center,
-                            startRadius: 40,
-                            endRadius: 120
-                        )
-                    )
-                    .frame(width: 220, height: 220)
-
-                Text(petVM.pet.stage.emoji)
-                    .font(.system(size: 110))
-                    .scaleEffect(petScale)
-                    .offset(y: petOffset)
-            }
-
-            HStack(spacing: 8) {
-                Text(petVM.pet.mood.emoji)
-                    .font(.title2)
-                Text(petVM.pet.mood.label)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(.secondary)
-            }
-
-            HStack(spacing: 16) {
-                ActionButton(icon: "moon.fill", label: petVM.pet.isSleeping ? "Wake" : "Sleep", color: .indigo) {
-                    petVM.toggleSleep()
-                    pulsePet()
-                }
-                ActionButton(icon: "hand.point.up.left.fill", label: "Pet", color: .pink) {
-                    petVM.pet.happiness = min(100, petVM.pet.happiness + 8)
-                    petVM.save()
-                    pulsePet()
-                }
-            }
-        }
-    }
+    // MARK: - Stats panel
 
     var statsPanel: some View {
-        VStack(spacing: 10) {
-            StatBar(label: "Hunger",    value: petVM.pet.hunger,    color: .orange,  icon: "fork.knife")
-            StatBar(label: "Happiness", value: petVM.pet.happiness, color: .pink,    icon: "heart.fill")
-            StatBar(label: "Health",    value: petVM.pet.health,    color: .green,   icon: "cross.fill")
+        VStack(spacing: 0) {
+            Divider()
+                .padding(.horizontal, 28)
 
-            ProgressView(value: Double(petVM.pet.xp), total: Double(petVM.pet.xpToNextLevel))
-                .tint(.purple)
-                .padding(.horizontal, 4)
-
-            Text("XP: \(petVM.pet.xp) / \(petVM.pet.xpToNextLevel)")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .padding(16)
-        .background(.regularMaterial)
-        .cornerRadius(20)
-        .padding(.horizontal, 16)
-    }
-
-    var stageColor: Color {
-        switch petVM.pet.stage {
-        case .egg:   return .gray
-        case .baby:  return .yellow
-        case .child: return .green
-        case .teen:  return .blue
-        case .adult: return .purple
-        }
-    }
-
-    // MARK: - Animations
-
-    func startIdleAnimation() {
-        withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
-            petOffset = petVM.pet.isSleeping ? 4 : -8
-        }
-    }
-
-    func pulsePet() {
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.4)) {
-            petScale = 1.2
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.spring()) { petScale = 1.0 }
+            VStack(spacing: 14) {
+                HomeStatRow(label: "Hunger", value: pet.hunger,
+                            fill: Color(red: 1.0, green: 0.62, blue: 0.26))
+                HomeStatRow(label: "Health", value: pet.health,
+                            fill: Color(red: 0.30, green: 0.80, blue: 0.55))
+            }
+            .padding(.horizontal, 32)
+            .padding(.top, 18)
         }
     }
 }
 
-struct StatBar: View {
+// MARK: - Stat row
+
+struct HomeStatRow: View {
     let label: String
     let value: Double
-    let color: Color
-    let icon: String
+    let fill: Color
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .foregroundColor(color)
-                .frame(width: 18)
+        HStack(spacing: 14) {
+            Text(label)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(Color(white: 0.45))
+                .frame(width: 54, alignment: .leading)
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(color.opacity(0.15))
+                    Capsule()
+                        .fill(fill.opacity(0.14))
+                        .frame(height: 8)
 
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(color.opacity(0.8))
-                        .frame(width: geo.size.width * CGFloat(value / 100))
-                        .animation(.spring(), value: value)
+                    Capsule()
+                        .fill(fill)
+                        .frame(width: geo.size.width * CGFloat(max(0, min(value, 100)) / 100),
+                               height: 8)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.7), value: value)
                 }
+                .frame(maxHeight: .infinity, alignment: .center)
             }
-            .frame(height: 10)
+            .frame(height: 8)
 
             Text("\(Int(value))")
-                .font(.caption.monospacedDigit())
-                .foregroundColor(.secondary)
-                .frame(width: 28, alignment: .trailing)
+                .font(.system(size: 13, weight: .medium, design: .rounded).monospacedDigit())
+                .foregroundColor(Color(white: 0.55))
+                .frame(width: 30, alignment: .trailing)
         }
     }
 }
 
-struct ActionButton: View {
-    let icon: String
-    let label: String
-    let color: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.title2)
-                Text(label)
-                    .font(.caption.weight(.medium))
-            }
-            .foregroundColor(color)
-            .frame(width: 80, height: 64)
-            .background(color.opacity(0.12))
-            .cornerRadius(16)
-        }
-    }
-}
+// MARK: - Evolution overlay
 
 struct EvolutionOverlay: View {
     let stage: Pet.EvolutionStage
     let dismiss: () -> Void
-    @State private var scale: CGFloat = 0.3
+    @State private var scale: CGFloat = 0.4
     @State private var opacity: Double = 0
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.5).ignoresSafeArea()
+            Color.black.opacity(0.45).ignoresSafeArea()
 
-            VStack(spacing: 20) {
-                Text("✨ Evolution! ✨")
-                    .font(.largeTitle.bold())
-                    .foregroundColor(.white)
-
-                Text(stage.emoji)
-                    .font(.system(size: 100))
+            VStack(spacing: 24) {
+                Text("Evolution")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.7))
+                    .tracking(2)
+                    .textCase(.uppercase)
 
                 Text(stage.displayName)
-                    .font(.title.bold())
+                    .font(.system(size: 42, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
 
-                Button("Amazing!", action: dismiss)
-                    .buttonStyle(.borderedProminent)
-                    .tint(.purple)
+                Text("Your buddy grew into a \(stage.displayName).")
+                    .font(.system(size: 16, design: .rounded))
+                    .foregroundColor(.white.opacity(0.75))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+
+                Button(action: dismiss) {
+                    Text("Nice")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(.black)
+                        .frame(width: 140, height: 46)
+                        .background(Color.white)
+                        .cornerRadius(23)
+                }
+                .padding(.top, 4)
             }
             .scaleEffect(scale)
             .opacity(opacity)
             .onAppear {
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.65)) {
                     scale = 1
                     opacity = 1
                 }
