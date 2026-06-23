@@ -18,6 +18,7 @@ struct FoodItem: Identifiable, Codable {
         FoodItem(id: "steak",     name: "Steak",       emoji: "🥩", hungerValue: 60, happinessValue: 25, cost: 30, description: "Max hunger, premium vibes."),
         FoodItem(id: "watermelon",name: "Watermelon",  emoji: "🍉", hungerValue: 15, happinessValue: 20, cost: 7,  description: "Refreshing and sweet."),
         FoodItem(id: "ramen",     name: "Ramen",       emoji: "🍜", hungerValue: 45, happinessValue: 30, cost: 20, description: "Comfort in a bowl."),
+        FoodItem(id: "beetle_grub", name: "Bug Grub",  emoji: "",   hungerValue: 20, happinessValue: 8,  cost: 0,  description: "Harvested from your beetles."),
     ]
 
     static func find(_ id: String) -> FoodItem? {

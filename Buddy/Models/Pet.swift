@@ -16,6 +16,7 @@ struct Pet: Codable {
     var totalFeedings: Int = 0
     var totalGamesPlayed: Int = 0
     var foodInventory: [String: Int] = ["apple": 3, "cookie": 1]
+    var beetles: [Beetle] = []
 
     // Egg hatching
     var eggCreatedDate: Date = Date()

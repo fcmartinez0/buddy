@@ -9,13 +9,13 @@ struct MiniGamesView: View {
                 VStack(spacing: 16) {
                     coinBanner
 
-                    NavigationLink(destination: BeetleFarmView()) {
+                    NavigationLink(destination: BeetleFarmView().environmentObject(petVM)) {
                         GameCard(
                             title: "Beetle Farm",
-                            subtitle: "Tap beetles before they escape",
-                            emoji: "🐛",
+                            subtitle: "Raise, sell, and collect beetles",
+                            emoji: "·",
                             accentColor: .green,
-                            rewardRange: "1–10 coins per catch"
+                            rewardRange: "6 rarities · grows over time · harvests Bug Grub"
                         )
                     }
                     .buttonStyle(.plain)

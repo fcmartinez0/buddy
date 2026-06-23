@@ -159,6 +159,34 @@ class PetViewModel: ObservableObject {
         save()
     }
 
+    // MARK: - Beetle Farm
+
+    func scoutBeetle() {
+        guard pet.coins >= Beetle.scoutCost else { return }
+        guard pet.beetles.count < Beetle.maxOwned else { return }
+        pet.coins -= Beetle.scoutCost
+        pet.beetles.append(Beetle.scout())
+        save()
+    }
+
+    func harvestBeetle(id: UUID) {
+        guard let idx = pet.beetles.firstIndex(where: { $0.id == id }) else { return }
+        guard pet.beetles[idx].isReadyToHarvest else { return }
+        let yield = pet.beetles[idx].grubYield
+        pet.beetles[idx].lastHarvestDate = Date()
+        pet.foodInventory["beetle_grub", default: 0] += yield
+        notify("Harvested \(yield) Bug Grub!", type: .reward)
+        save()
+    }
+
+    func sellBeetle(id: UUID) {
+        guard let idx = pet.beetles.firstIndex(where: { $0.id == id }) else { return }
+        let value = pet.beetles[idx].sellValue
+        pet.coins += value
+        pet.beetles.remove(at: idx)
+        save()
+    }
+
     // MARK: - Dev tools
 
     func devResetAsEgg(species: Pet.PetSpecies) {
