@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buddy — 6-Month Tracker</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:      #f9f9f7;
+    --surface:   #fcfcfb;
+    --ink:       #0b0b0b;
+    --ink-2:     #52514e;
+    --muted:     #898781;
+    --grid:      #e1e0d9;
+    --baseline:  #c3c2b7;
+    --border:    rgba(11,11,11,0.10);
+    --good:      #0ca30c;
+    --good-text: #006300;
+    --warn:      #fab219;
+    --critical:  #d03b3b;
+    --seq:       #2a78d6;
+    --seq-soft:  #b7d3f6;
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+    --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page:      #0d0d0d;
+      --surface:   #1a1a19;
+      --ink:       #ffffff;
+      --ink-2:     #c3c2b7;
+      --muted:     #898781;
+      --grid:      #2c2c2a;
+      --baseline:  #383835;
+      --border:    rgba(255,255,255,0.10);
+      --good-text: #0ca30c;
+      --seq:       #3987e5;
+      --seq-soft:  #1c5cab;
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+      --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page:      #0d0d0d;
+    --surface:   #1a1a19;
+    --ink:       #ffffff;
+    --ink-2:     #c3c2b7;
+    --muted:     #898781;
+    --grid:      #2c2c2a;
+    --baseline:  #383835;
+    --border:    rgba(255,255,255,0.10);
+    --good-text: #0ca30c;
+    --seq:       #3987e5;
+    --seq-soft:  #1c5cab;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+    --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 20px 16px 80px; }
+
+  .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+  .top h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; }
+  .mission { color: var(--ink-2); margin: 2px 0 0; font-size: 14px; max-width: 46ch; }
+  .top-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .pill {
+    font-size: 13px; color: var(--ink-2); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; white-space: nowrap;
+  }
+
+  nav { display: flex; gap: 4px; margin: 16px 0; border-bottom: 1px solid var(--grid); }
+  nav button {
+    appearance: none; background: none; border: none; border-bottom: 2px solid transparent;
+    padding: 8px 14px; font: inherit; font-weight: 500; color: var(--ink-2); cursor: pointer;
+  }
+  nav button[aria-current="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+  nav button:hover { color: var(--ink); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; margin-bottom: 14px;
+  }
+  .card h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 12px; }
+  .card h2 .sub { text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 14px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .tile .v { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+  .tile .v small { font-size: 15px; font-weight: 500; color: var(--ink-2); }
+  .tile .l { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  button.btn {
+    appearance: none; font: inherit; font-weight: 500; cursor: pointer;
+    background: var(--ink); color: var(--page); border: 1px solid var(--ink);
+    border-radius: 8px; padding: 6px 14px;
+  }
+  button.btn.ghost { background: none; color: var(--ink-2); border: 1px solid var(--border); }
+  button.btn.ghost:hover { color: var(--ink); border-color: var(--baseline); }
+  button.btn.danger { background: none; color: var(--critical); border-color: var(--critical); }
+  button.icon {
+    appearance: none; background: none; border: 1px solid var(--border); border-radius: 8px;
+    color: var(--ink-2); font: inherit; cursor: pointer; padding: 4px 9px;
+  }
+  button.icon:hover { color: var(--ink); }
+  button.linkish { appearance: none; background: none; border: none; padding: 0; font: inherit; font-size: 13px; color: var(--ink-2); cursor: pointer; text-decoration: underline; }
+
+  input[type=text], input[type=date], textarea, select, input[type=number] {
+    font: inherit; color: var(--ink); background: var(--page);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; width: 100%;
+  }
+  textarea { resize: vertical; min-height: 72px; }
+  label.f { display: block; font-size: 13px; color: var(--ink-2); margin: 10px 0 4px; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row > * { flex: 1; }
+  .row .tight { flex: 0 0 auto; }
+
+  .bar { height: 8px; background: var(--grid); border-radius: 4px; overflow: hidden; flex: 1; }
+  .bar i { display: block; height: 100%; border-radius: 4px; min-width: 4px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+  .bar-row .name { flex: 0 0 38%; display: flex; align-items: center; gap: 8px; font-size: 14px; min-width: 0; }
+  .bar-row .name span.t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-row .pct { flex: 0 0 44px; text-align: right; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  .focus-item { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--grid); }
+  .focus-item:last-of-type { border-bottom: none; }
+  .focus-item input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--good); flex-shrink: 0; }
+  .focus-item .t { flex: 1; }
+  .focus-item .t.done { color: var(--muted); text-decoration: line-through; }
+  .focus-item .g { font-size: 12px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 5px; }
+
+  .nudge {
+    display: flex; align-items: center; gap: 8px; font-size: 14px;
+    border: 1px solid var(--border); border-left: 3px solid var(--warn);
+    border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; background: var(--surface);
+  }
+  .nudge b { font-weight: 600; }
+
+  .heat { overflow-x: auto; padding-bottom: 4px; }
+  .heat table { border-collapse: separate; border-spacing: 3px; }
+  .heat td { width: 12px; height: 12px; border-radius: 3px; background: var(--grid); }
+  .heat td.off { background: none; }
+  .heat td.on { background: var(--seq); }
+  .heat td.future { background: none; border: 1px dashed var(--grid); }
+  .heat td.today { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .heat .mlab td { background: none; border: none; height: auto; font-size: 11px; color: var(--muted); text-align: left; white-space: nowrap; }
+  .heat .dlab { font-size: 11px; color: var(--muted); padding-right: 4px; background: none; width: auto; }
+  .legend { display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .legend .k { display: inline-flex; align-items: center; gap: 5px; }
+  .legend .sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+  .goal { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; background: var(--surface); }
+  .goal.paused { opacity: 0.65; }
+  .goal .head { display: flex; align-items: baseline; gap: 8px; }
+  .goal .head h3 { font-size: 16px; margin: 0; flex: 1; min-width: 0; }
+  .goal .head h3 .dot { display: inline-block; margin-right: 6px; }
+  .goal .why { color: var(--ink-2); font-size: 14px; margin: 4px 0 0; }
+  .goal .meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .ms { list-style: none; padding: 0; margin: 10px 0 0; }
+  .ms li { display: flex; align-items: center; gap: 9px; padding: 4px 0; }
+  .ms input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--good); }
+  .ms .done { color: var(--muted); text-decoration: line-through; }
+  .ms button { margin-left: auto; }
+  .badge { font-size: 12px; border-radius: 999px; padding: 2px 9px; border: 1px solid var(--border); color: var(--ink-2); white-space: nowrap; }
+  .badge.due { border-color: var(--warn); }
+  .badge.done { color: var(--good-text); border-color: var(--good-text); }
+  .checkin-log { font-size: 13px; color: var(--ink-2); margin: 8px 0 0; padding-left: 0; list-style: none; }
+  .checkin-log li { padding: 3px 0; border-top: 1px solid var(--grid); }
+  .checkin-log .d { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 8px; }
+
+  .mood-pick { display: flex; gap: 6px; }
+  .mood-pick button {
+    appearance: none; font-size: 20px; background: none; border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px 10px; cursor: pointer; filter: grayscale(1); opacity: 0.6;
+  }
+  .mood-pick button[aria-pressed="true"] { filter: none; opacity: 1; border-color: var(--baseline); background: var(--page); }
+
+  .entry { border-top: 1px solid var(--grid); padding: 12px 0; }
+  .entry:first-of-type { border-top: none; }
+  .entry .eh { display: flex; align-items: baseline; gap: 8px; }
+  .entry .eh .d { font-weight: 600; }
+  .entry .eh .mood { font-size: 17px; }
+  .entry .eh .spacer { flex: 1; }
+  .entry .wins { color: var(--good-text); font-size: 14px; margin: 4px 0 0; }
+  .entry .txt { margin: 4px 0 0; white-space: pre-wrap; }
+  .entry .tags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .month-h { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 18px 0 4px; }
+
+  .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+  dialog {
+    background: var(--surface); color: var(--ink); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px; width: min(440px, calc(100vw - 32px));
+  }
+  dialog::backdrop { background: rgba(0,0,0,0.4); }
+  dialog h2 { margin: 0 0 6px; font-size: 17px; }
+
+  .tip {
+    position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--page);
+    font-size: 12px; border-radius: 6px; padding: 4px 8px; white-space: nowrap; transform: translate(-50%, -130%);
+  }
+  .goal-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-2); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+  .goal-tag .dot { width: 8px; height: 8px; }
+  details.adv summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Buddy</h1>
+      <p class="mission" id="missionLine"></p>
+    </div>
+    <div class="top-right">
+      <span class="pill" id="countPill" hidden></span>
+      <button class="icon" id="settingsBtn" title="Settings" aria-label="Settings">&#9881;</button>
+    </div>
+  </header>
+  <nav id="tabs" hidden>
+    <button data-view="today">Today</button>
+    <button data-view="goals">Goals</button>
+    <button data-view="journal">Journal</button>
+  </nav>
+  <main id="view"></main>
+</div>
+
+<dialog id="settings">
+  <h2>Settings</h2>
+  <label class="f" for="setMission">Mission — the one line that keeps you pointed</label>
+  <input type="text" id="setMission" maxlength="140" placeholder="e.g. Ship my app and run a 10k by January">
+  <label class="f" for="setStart">Start date (window ends 6 months later)</label>
+  <input type="date" id="setStart">
+  <div class="row" style="margin-top:16px">
+    <button class="btn" id="setSave">Save</button>
+    <button class="btn ghost" id="setClose">Close</button>
+  </div>
+  <hr style="border:none;border-top:1px solid var(--grid);margin:16px 0">
+  <div class="row">
+    <button class="btn ghost" id="exportBtn">Export data</button>
+    <button class="btn ghost" id="importBtn">Import data</button>
+    <input type="file" id="importFile" accept="application/json" hidden>
+  </div>
+  <p class="hint">Everything lives in this browser's local storage. Export a JSON backup now and then.</p>
+  <details class="adv" style="margin-top:10px">
+    <summary>Danger zone</summary>
+    <button class="btn danger" id="resetBtn" style="margin-top:8px">Erase everything</button>
+  </details>
+</dialog>
+
+<div class="tip" id="tip" hidden></div>
+
+<script>
+'use strict';
+
+/* ---------- storage ---------- */
+const KEY = 'buddy-tracker-v1';
+const DEFAULT = { v: 1, startDate: null, mission: '', goals: [], journal: [], focus: {} };
+let S = load();
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) return Object.assign(structuredClone(DEFAULT), JSON.parse(raw));
+  } catch (e) { /* corrupted → start fresh */ }
+  return structuredClone(DEFAULT);
+}
+function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
+function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+
+/* ---------- dates (all local, YYYY-MM-DD) ---------- */
+function todayStr() { return toStr(new Date()); }
+function toStr(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function toDate(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function addDays(s, n) { const d = toDate(s); d.setDate(d.getDate() + n); return toStr(d); }
+function addMonths(s, n) {
+  const d = toDate(s), day = d.getDate();
+  d.setMonth(d.getMonth() + n);
+  if (d.getDate() !== day) d.setDate(0); // clamp e.g. Aug 31 → Feb 28
+  return toStr(d);
+}
+function diffDays(a, b) { return Math.round((toDate(b) - toDate(a)) / 864e5); }
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmt(s) { const d = toDate(s); return MONTHS[d.getMonth()] + ' ' + d.getDate(); }
+function fmtLong(s) {
+  const d = toDate(s);
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+function endDate() { return S.startDate ? addMonths(S.startDate, 6) : null; }
+
+/* ---------- helpers ---------- */
+function esc(t) {
+  return String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+const MOODS = ['\u{1F61E}', '\u{1F615}', '\u{1F610}', '\u{1F642}', '\u{1F604}'];
+const SLOTS = 8;
+function goalColor(g) { return 'var(--s' + ((g.colorSlot % SLOTS) + 1) + ')'; }
+function activeGoals() { return S.goals.filter(g => g.status === 'active'); }
+function goalById(id) { return S.goals.find(g => g.id === id); }
+function progressOf(g) {
+  if (g.milestones.length) {
+    return Math.round(100 * g.milestones.filter(m => m.done).length / g.milestones.length);
+  }
+  const last = g.checkins[g.checkins.length - 1];
+  return last ? last.progress : 0;
+}
+function lastCheckin(g) { return g.checkins.length ? g.checkins[g.checkins.length - 1].date : null; }
+function checkinDue(g) {
+  if (g.status !== 'active') return false;
+  const last = lastCheckin(g) || g.createdAt;
+  return diffDays(last, todayStr()) >= 7;
+}
+function entryFor(date) { return S.journal.find(e => e.date === date); }
+function journalStreak() {
+  const days = new Set(S.journal.map(e => e.date));
+  let d = todayStr(), n = 0;
+  if (!days.has(d)) d = addDays(d, -1); // today isn't over yet — don't break the streak
+  while (days.has(d)) { n++; d = addDays(d, -1); }
+  return n;
+}
+
+/* ---------- shell ---------- */
+let view = 'today';
+const $ = sel => document.querySelector(sel);
+
+// #view survives re-renders, so views register their click handler here
+// instead of calling addEventListener (which would stack a copy per render).
+let onViewClick = null;
+
+function render() {
+  const hasSetup = !!S.startDate;
+  $('#tabs').hidden = !hasSetup;
+  $('#countPill').hidden = !hasSetup;
+  $('#missionLine').textContent = S.mission || (hasSetup ? '' : '');
+  if (!hasSetup) { renderSetup(); return; }
+
+  const t = todayStr(), end = endDate();
+  const total = diffDays(S.startDate, end);
+  const day = Math.min(Math.max(diffDays(S.startDate, t) + 1, 1), total);
+  const left = Math.max(diffDays(t, end), 0);
+  $('#countPill').textContent = t > end
+    ? 'Window ended ' + fmt(end)
+    : 'Day ' + day + ' of ' + total + ' · ' + left + ' left';
+
+  document.querySelectorAll('#tabs button').forEach(b =>
+    b.setAttribute('aria-current', b.dataset.view === view ? 'true' : 'false'));
+  if (view === 'today') renderToday();
+  else if (view === 'goals') renderGoals();
+  else renderJournal();
+}
+
+document.querySelectorAll('#tabs button').forEach(b =>
+  b.addEventListener('click', () => { view = b.dataset.view; render(); }));
+$('#view').addEventListener('click', e => { if (onViewClick) onViewClick(e); });
+
+/* ---------- first-run setup ---------- */
+function renderSetup() {
+  $('#view').innerHTML = `
+    <div class="card">
+      <h2>Set up your 6 months</h2>
+      <p>Pick a start date and write a one-line mission. Everything in here — goals, journal, focus — lives inside that window.</p>
+      <label class="f" for="fMission">Mission</label>
+      <input type="text" id="fMission" maxlength="140" placeholder="e.g. Ship my app and run a 10k by January">
+      <label class="f" for="fStart">Start date</label>
+      <input type="date" id="fStart" value="${todayStr()}">
+      <p class="hint" id="fEnds"></p>
+      <button class="btn" id="fGo" style="margin-top:12px">Start tracking</button>
+      <p class="hint">Data is stored only in this browser. You can export a backup any time from settings.</p>
+    </div>`;
+  const upd = () => {
+    const v = $('#fStart').value;
+    $('#fEnds').textContent = v ? 'Your window runs through ' + fmt(addMonths(v, 6)) + '.' : '';
+  };
+  $('#fStart').addEventListener('input', upd); upd();
+  $('#fGo').addEventListener('click', () => {
+    const v = $('#fStart').value;
+    if (!v) return;
+    S.startDate = v;
+    S.mission = $('#fMission').value.trim();
+    save(); render();
+  });
+}
+
+/* ---------- Today ---------- */
+function renderToday() {
+  const t = todayStr();
+  const acts = activeGoals();
+  const doneGoals = S.goals.filter(g => g.status === 'done').length;
+  const due = acts.filter(checkinDue);
+  const streak = journalStreak();
+  const todayEntry = entryFor(t);
+  const focus = S.focus[t] || [];
+  const end = endDate();
+  const pct = Math.min(Math.max(Math.round(100 * diffDays(S.startDate, t) / diffDays(S.startDate, end)), 0), 100);
+
+  let nudges = '';
+  if (!todayEntry) nudges += `<div class="nudge">✍️ <span><b>No journal entry yet today.</b> Two sentences count.</span></div>`;
+  for (const g of due) {
+    nudges += `<div class="nudge">⏰ <span><b>${esc(g.title)}</b> hasn’t had a check-in in over a week.</span>
+      <button class="linkish tight" data-act="goto-goals" style="margin-left:auto">check in</button></div>`;
+  }
+
+  const focusRows = focus.map(f => {
+    const g = f.goalId ? goalById(f.goalId) : null;
+    return `<div class="focus-item">
+      <input type="checkbox" data-act="focus-toggle" data-id="${f.id}" ${f.done ? 'checked' : ''} aria-label="done">
+      <span class="t ${f.done ? 'done' : ''}">${esc(f.text)}</span>
+      ${g ? `<span class="g"><span class="dot" style="background:${goalColor(g)}"></span>${esc(g.title)}</span>` : ''}
+      <button class="icon tight" data-act="focus-del" data-id="${f.id}" aria-label="remove">&times;</button>
+    </div>`;
+  }).join('');
+
+  const goalOpts = acts.map(g => `<option value="${g.id}">${esc(g.title)}</option>`).join('');
+  const addFocus = focus.length < 3 ? `
+    <div class="row" style="margin-top:10px">
+      <input type="text" id="focusText" placeholder="One concrete thing for today…" maxlength="120">
+      ${acts.length ? `<select id="focusGoal" class="tight" style="max-width:170px"><option value="">(no goal)</option>${goalOpts}</select>` : ''}
+      <button class="btn tight" data-act="focus-add">Add</button>
+    </div>` : `<p class="hint">Three is plenty. Finish these first.</p>`;
+
+  const bars = acts.map(g => {
+    const p = progressOf(g);
+    return `<div class="bar-row">
+      <span class="name"><span class="dot" style="background:${goalColor(g)}"></span><span class="t">${esc(g.title)}</span></span>
+      <span class="bar"><i style="width:${p}%;background:${goalColor(g)}"></i></span>
+      <span class="pct">${p}%</span>
+      ${checkinDue(g) ? '<span class="badge due tight">check-in due</span>' : ''}
+    </div>`;
+  }).join('') || '<p class="empty">No active goals yet — add some in the Goals tab.</p>';
+
+  const quick = todayEntry ? `
+    <p><span class="mood">${MOODS[todayEntry.mood]}</span> ${esc(todayEntry.text).slice(0, 220)}${todayEntry.text.length > 220 ? '…' : ''}</p>
+    <button class="btn ghost" data-act="goto-journal">Open journal</button>` : `
+    <div class="mood-pick" id="qMood" style="margin-bottom:10px">
+      ${MOODS.map((m, i) => `<button data-mood="${i}" aria-pressed="false" aria-label="mood ${i + 1} of 5">${m}</button>`).join('')}
+    </div>
+    <textarea id="qText" placeholder="How did today actually go? What moved you toward the mission — what got in the way?"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="btn tight" data-act="quick-save">Save entry</button>
+      <span class="hint">Saved to today, ${fmtLong(t)}.</span>
+    </div>`;
+
+  $('#view').innerHTML = `
+    ${nudges}
+    <div class="tiles">
+      <div class="tile"><div class="v">${pct}<small>%</small></div><div class="l">of the window elapsed</div></div>
+      <div class="tile"><div class="v">${streak}<small> day${streak === 1 ? '' : 's'}</small></div><div class="l">journal streak</div></div>
+      <div class="tile"><div class="v">${doneGoals}<small> / ${S.goals.length}</small></div><div class="l">goals completed</div></div>
+      <div class="tile"><div class="v">${due.length}</div><div class="l">check-ins due</div></div>
+    </div>
+    <div class="card">
+      <h2>Today’s focus <span class="sub">· max 3</span></h2>
+      ${focusRows || '<p class="empty">What would make today a win? Pick up to three things.</p>'}
+      ${addFocus}
+    </div>
+    <div class="card">
+      <h2>Quick journal <span class="sub">· ${fmtLong(t)}</span></h2>
+      ${quick}
+    </div>
+    <div class="card">
+      <h2>Goal progress</h2>
+      ${bars}
+    </div>
+    <div class="card">
+      <h2>Journal consistency</h2>
+      ${heatmapHTML()}
+      <div class="legend">
+        <span class="k"><span class="sw" style="background:var(--seq)"></span>journaled</span>
+        <span class="k"><span class="sw" style="background:var(--grid)"></span>missed</span>
+        <span class="k"><span class="sw" style="border:1px dashed var(--grid)"></span>upcoming</span>
+      </div>
+    </div>`;
+
+  let qMood = 3;
+  const mp = $('#qMood');
+  if (mp) {
+    const paint = () => mp.querySelectorAll('button').forEach(b =>
+      b.setAttribute('aria-pressed', String(Number(b.dataset.mood) === qMood)));
+    mp.addEventListener('click', e => {
+      const b = e.target.closest('button[data-mood]');
+      if (b) { qMood = Number(b.dataset.mood); paint(); }
+    });
+    paint();
+  }
+
+  onViewClick = e => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const act = el.dataset.act;
+    if (act === 'goto-goals') { view = 'goals'; render(); }
+    else if (act === 'goto-journal') { view = 'journal'; render(); }
+    else if (act === 'focus-add') {
+      const txt = $('#focusText').value.trim();
+      if (!txt) return;
+      const sel = $('#focusGoal');
+      (S.focus[t] = S.focus[t] || []).push({ id: uid(), text: txt, goalId: sel && sel.value || null, done: false });
+      save(); render();
+    } else if (act === 'focus-toggle') {
+      const f = (S.focus[t] || []).find(x => x.id === el.dataset.id);
+      if (f) { f.done = el.checked; save(); render(); }
+    } else if (act === 'focus-del') {
+      S.focus[t] = (S.focus[t] || []).filter(x => x.id !== el.dataset.id);
+      save(); render();
+    } else if (act === 'quick-save') {
+      const txt = $('#qText').value.trim();
+      if (!txt) return;
+      S.journal.push({ id: uid(), date: t, mood: qMood, text: txt, wins: '', goalIds: [] });
+      save(); render();
+    }
+  };
+  wireHeatmapTips();
+}
+
+/* ---------- heatmap ---------- */
+function heatmapHTML() {
+  const start = S.startDate, end = endDate(), t = todayStr();
+  const entryDays = new Set(S.journal.map(e => e.date));
+  // grid runs Monday-first; pad back to the Monday on/before start
+  const startD = toDate(start);
+  const pad = (startD.getDay() + 6) % 7;
+  let cur = addDays(start, -pad);
+  const cols = [];
+  while (cur <= end) {
+    const col = [];
+    for (let i = 0; i < 7; i++) { col.push(cur); cur = addDays(cur, 1); }
+    cols.push(col);
+  }
+  const mlab = cols.map((col, i) => {
+    const d = toDate(col[0]);
+    const prev = i > 0 ? toDate(cols[i - 1][0]) : null;
+    return '<td>' + ((!prev || prev.getMonth() !== d.getMonth()) ? MONTHS[d.getMonth()] : '') + '</td>';
+  }).join('');
+  const DAYS = ['Mon', '', 'Wed', '', 'Fri', '', ''];
+  const rows = DAYS.map((lab, r) => {
+    const cells = cols.map(col => {
+      const d = col[r];
+      if (d < start || d > end) return '<td class="off"></td>';
+      let cls = d > t ? 'future' : (entryDays.has(d) ? 'on' : '');
+      if (d === t) cls += ' today';
+      const state = d > t ? 'upcoming' : (entryDays.has(d) ? 'journaled' : 'no entry');
+      return `<td class="${cls}" data-tip="${fmt(d)} · ${state}"></td>`;
+    }).join('');
+    return `<tr><td class="dlab off">${lab}</td>${cells}</tr>`;
+  }).join('');
+  return `<div class="heat"><table aria-label="journal days across the 6-month window">
+    <tr class="mlab"><td class="dlab"></td>${mlab}</tr>${rows}</table></div>`;
+}
+function wireHeatmapTips() {
+  const tip = $('#tip');
+  document.querySelectorAll('.heat td[data-tip]').forEach(td => {
+    td.addEventListener('mouseenter', () => {
+      const r = td.getBoundingClientRect();
+      tip.textContent = td.dataset.tip;
+      tip.style.left = (r.left + r.width / 2) + 'px';
+      tip.style.top = r.top + 'px';
+      tip.hidden = false;
+    });
+    td.addEventListener('mouseleave', () => { tip.hidden = true; });
+  });
+}
+
+/* ---------- Goals ---------- */
+let goalFormOpen = false;
+let checkinOpen = null; // goal id with the check-in form expanded
+
+function renderGoals() {
+  const form = goalFormOpen ? `
+    <div class="card">
+      <h2>New goal</h2>
+      <label class="f" for="gTitle">What are you going after?</label>
+      <input type="text" id="gTitle" maxlength="80" placeholder="e.g. Run a 10k under 55 minutes">
+      <label class="f" for="gWhy">Why does it matter? (you’ll see this when motivation dips)</label>
+      <input type="text" id="gWhy" maxlength="140" placeholder="e.g. I want energy back and proof I finish things">
+      <label class="f" for="gTarget">Target date (optional, inside your window)</label>
+      <input type="date" id="gTarget" min="${S.startDate}" max="${endDate()}">
+      <label class="f" for="gMs">Milestones — one per line (progress is measured by checking these off)</label>
+      <textarea id="gMs" placeholder="Sign up for the race&#10;Run 5k without stopping&#10;Run 8k&#10;Race day"></textarea>
+      <div class="row" style="margin-top:12px">
+        <button class="btn tight" data-act="goal-save">Add goal</button>
+        <button class="btn ghost tight" data-act="goal-cancel">Cancel</button>
+      </div>
+    </div>` : `<button class="btn" data-act="goal-new" style="margin-bottom:14px">+ New goal</button>`;
+
+  const order = { active: 0, paused: 1, done: 2 };
+  const cards = [...S.goals].sort((a, b) => order[a.status] - order[b.status]).map(g => {
+    const p = progressOf(g);
+    const ms = g.milestones.map(m => `
+      <li><input type="checkbox" data-act="ms-toggle" data-gid="${g.id}" data-id="${m.id}" ${m.done ? 'checked' : ''} ${g.status !== 'active' ? 'disabled' : ''}>
+        <span class="${m.done ? 'done' : ''}">${esc(m.text)}</span></li>`).join('');
+    const log = g.checkins.slice(-3).reverse().map(c =>
+      `<li><span class="d">${fmt(c.date)}</span>${c.progress != null && !g.milestones.length ? c.progress + '% · ' : ''}${esc(c.note)}</li>`).join('');
+    const ci = checkinOpen === g.id ? `
+      <div style="margin-top:10px">
+        ${g.milestones.length ? '' : `<label class="f">Progress: <output id="ciOut">${p}</output>%</label>
+          <input type="range" id="ciProg" min="0" max="100" value="${p}" style="width:100%">`}
+        <label class="f" for="ciNote">What happened this week? What’s the next move?</label>
+        <input type="text" id="ciNote" maxlength="200" placeholder="e.g. Ran twice, missed Friday. Next: book Tuesday run.">
+        <div class="row" style="margin-top:10px">
+          <button class="btn tight" data-act="ci-save" data-gid="${g.id}">Save check-in</button>
+          <button class="btn ghost tight" data-act="ci-cancel">Cancel</button>
+        </div>
+      </div>` : '';
+    return `<div class="goal ${g.status}">
+      <div class="head">
+        <h3><span class="dot" style="background:${goalColor(g)}"></span>${esc(g.title)}</h3>
+        ${g.status === 'done' ? '<span class="badge done">completed</span>'
+          : g.status === 'paused' ? '<span class="badge">paused</span>'
+          : checkinDue(g) ? '<span class="badge due">check-in due</span>' : ''}
+      </div>
+      ${g.why ? `<p class="why">${esc(g.why)}</p>` : ''}
+      <p class="meta">${g.targetDate ? 'target ' + fmt(g.targetDate) + ' · ' : ''}last check-in ${lastCheckin(g) ? fmt(lastCheckin(g)) : 'never'}</p>
+      <div class="bar-row">
+        <span class="bar"><i style="width:${p}%;background:${goalColor(g)}"></i></span>
+        <span class="pct">${p}%</span>
+      </div>
+      ${ms ? `<ul class="ms">${ms}</ul>` : ''}
+      ${log ? `<ul class="checkin-log">${log}</ul>` : ''}
+      ${ci}
+      <div class="row" style="margin-top:12px">
+        ${g.status === 'active' ? `
+          <button class="btn ghost tight" data-act="ci-open" data-gid="${g.id}">Check in</button>
+          <button class="btn ghost tight" data-act="goal-done" data-gid="${g.id}">Mark complete</button>
+          <button class="btn ghost tight" data-act="goal-pause" data-gid="${g.id}">Pause</button>` : `
+          <button class="btn ghost tight" data-act="goal-reopen" data-gid="${g.id}">Reopen</button>`}
+        <span style="flex:1"></span>
+        <button class="icon tight" data-act="goal-del" data-gid="${g.id}" aria-label="delete goal">&times;</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  $('#view').innerHTML = form + (cards ||
+    `<div class="card"><p class="empty">No goals yet. Three to five well-chosen goals is the sweet spot for six months — each with milestones you can actually check off.</p></div>`);
+
+  const prog = $('#ciProg');
+  if (prog) prog.addEventListener('input', () => { $('#ciOut').textContent = prog.value; });
+
+  onViewClick = e => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const act = el.dataset.act;
+    const g = el.dataset.gid ? goalById(el.dataset.gid) : null;
+    if (act === 'goal-new') { goalFormOpen = true; render(); }
+    else if (act === 'goal-cancel') { goalFormOpen = false; render(); }
+    else if (act === 'goal-save') {
+      const title = $('#gTitle').value.trim();
+      if (!title) return;
+      const ms = $('#gMs').value.split('\n').map(x => x.trim()).filter(Boolean)
+        .map(text => ({ id: uid(), text, done: false }));
+      S.goals.push({
+        id: uid(), title, why: $('#gWhy').value.trim(), targetDate: $('#gTarget').value || null,
+        milestones: ms, checkins: [], status: 'active',
+        colorSlot: S.goals.length, createdAt: todayStr()
+      });
+      goalFormOpen = false; save(); render();
+    }
+    else if (act === 'ms-toggle') {
+      const m = g.milestones.find(x => x.id === el.dataset.id);
+      m.done = el.checked; save(); render();
+    }
+    else if (act === 'ci-open') { checkinOpen = g.id; render(); }
+    else if (act === 'ci-cancel') { checkinOpen = null; render(); }
+    else if (act === 'ci-save') {
+      const note = $('#ciNote').value.trim();
+      const prog = $('#ciProg');
+      g.checkins.push({ date: todayStr(), note, progress: prog ? Number(prog.value) : null });
+      checkinOpen = null; save(); render();
+    }
+    else if (act === 'goal-done') { g.status = 'done'; save(); render(); }
+    else if (act === 'goal-pause') { g.status = 'paused'; save(); render(); }
+    else if (act === 'goal-reopen') { g.status = 'active'; save(); render(); }
+    else if (act === 'goal-del') {
+      if (confirm('Delete "' + g.title + '" and its check-in history? This can’t be undone.')) {
+        S.goals = S.goals.filter(x => x.id !== g.id); save(); render();
+      }
+    }
+  };
+}
+
+/* ---------- Journal ---------- */
+let editingEntry = null; // entry id being edited, or 'new'
+let formMood = 3;
+let formGoalIds = [];
+
+function renderJournal() {
+  const acts = activeGoals();
+  const openForm = (entry) => {
+    const isNew = !entry;
+    const date = entry ? entry.date : todayStr();
+    return `
+    <div class="card">
+      <h2>${isNew ? 'New entry' : 'Edit entry'}</h2>
+      <div class="row">
+        <div><label class="f" for="jDate">Date</label>
+          <input type="date" id="jDate" value="${date}" min="${S.startDate}" max="${todayStr()}" ${isNew ? '' : 'disabled'}></div>
+        <div><label class="f">Mood</label>
+          <div class="mood-pick" id="jMood">
+            ${MOODS.map((m, i) => `<button data-mood="${i}" aria-pressed="${i === formMood}" aria-label="mood ${i + 1} of 5">${m}</button>`).join('')}
+          </div></div>
+      </div>
+      <label class="f" for="jWins">Wins today (even small ones)</label>
+      <input type="text" id="jWins" maxlength="200" value="${esc(entry ? entry.wins : '')}" placeholder="e.g. said no to a meeting, ran 3k">
+      <label class="f" for="jText">Entry</label>
+      <textarea id="jText" style="min-height:110px" placeholder="What happened? How do you feel about the mission today?">${esc(entry ? entry.text : '')}</textarea>
+      ${acts.length ? `<label class="f">Related goals</label>
+        <div class="tags" style="display:flex;flex-wrap:wrap;gap:6px">
+        ${acts.map(gl => `<button class="goal-tag" data-tag="${gl.id}" aria-pressed="${formGoalIds.includes(gl.id)}"
+            style="${formGoalIds.includes(gl.id) ? 'border-color:var(--baseline);background:var(--page)' : ''};cursor:pointer">
+            <span class="dot" style="background:${goalColor(gl)}"></span>${esc(gl.title)}</button>`).join('')}
+        </div>` : ''}
+      <div class="row" style="margin-top:12px">
+        <button class="btn tight" data-act="j-save">${isNew ? 'Save entry' : 'Save changes'}</button>
+        <button class="btn ghost tight" data-act="j-cancel">Cancel</button>
+        ${isNew ? '' : `<span style="flex:1"></span><button class="icon tight" data-act="j-del" aria-label="delete entry">&times;</button>`}
+      </div>
+    </div>`;
+  };
+
+  let top;
+  if (editingEntry === 'new') top = openForm(null);
+  else if (editingEntry) top = openForm(S.journal.find(e => e.id === editingEntry));
+  else top = `<button class="btn" data-act="j-new" style="margin-bottom:14px">+ New entry</button>`;
+
+  const sorted = [...S.journal].sort((a, b) => b.date.localeCompare(a.date));
+  let list = '', lastMonth = '';
+  for (const e of sorted) {
+    const d = toDate(e.date);
+    const mk = MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+    if (mk !== lastMonth) { list += `<div class="month-h">${mk}</div>`; lastMonth = mk; }
+    const tags = (e.goalIds || []).map(id => {
+      const g = goalById(id);
+      return g ? `<span class="goal-tag"><span class="dot" style="background:${goalColor(g)}"></span>${esc(g.title)}</span>` : '';
+    }).join('');
+    list += `<div class="entry">
+      <div class="eh"><span class="mood">${MOODS[e.mood]}</span><span class="d">${fmtLong(e.date)}</span>
+        <span class="spacer"></span>
+        <button class="linkish" data-act="j-edit" data-id="${e.id}">edit</button></div>
+      ${e.wins ? `<p class="wins">★ ${esc(e.wins)}</p>` : ''}
+      <p class="txt">${esc(e.text)}</p>
+      ${tags ? `<div class="tags">${tags}</div>` : ''}
+    </div>`;
+  }
+  $('#view').innerHTML = top + (list
+    ? `<div class="card">${list}</div>`
+    : `<div class="card"><p class="empty">No entries yet. A couple of honest sentences a day beats a perfect essay once a month.</p></div>`);
+
+  const mp = $('#jMood');
+  if (mp) mp.addEventListener('click', e => {
+    const b = e.target.closest('button[data-mood]');
+    if (b) {
+      formMood = Number(b.dataset.mood);
+      mp.querySelectorAll('button').forEach(x =>
+        x.setAttribute('aria-pressed', String(Number(x.dataset.mood) === formMood)));
+    }
+  });
+
+  onViewClick = e => {
+    const tag = e.target.closest('[data-tag]');
+    if (tag) {
+      const id = tag.dataset.tag;
+      formGoalIds = formGoalIds.includes(id) ? formGoalIds.filter(x => x !== id) : [...formGoalIds, id];
+      // re-render only the pressed state to keep textarea contents intact
+      tag.setAttribute('aria-pressed', String(formGoalIds.includes(id)));
+      tag.style.borderColor = formGoalIds.includes(id) ? 'var(--baseline)' : '';
+      tag.style.background = formGoalIds.includes(id) ? 'var(--page)' : '';
+      return;
+    }
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const act = el.dataset.act;
+    if (act === 'j-new') { editingEntry = 'new'; formMood = 3; formGoalIds = []; render(); }
+    else if (act === 'j-cancel') { editingEntry = null; render(); }
+    else if (act === 'j-edit') {
+      const entry = S.journal.find(x => x.id === el.dataset.id);
+      editingEntry = entry.id; formMood = entry.mood; formGoalIds = [...(entry.goalIds || [])];
+      render();
+    }
+    else if (act === 'j-save') {
+      const text = $('#jText').value.trim();
+      if (!text) return;
+      const wins = $('#jWins').value.trim();
+      if (editingEntry === 'new') {
+        const date = $('#jDate').value || todayStr();
+        const existing = entryFor(date);
+        if (existing && !confirm('You already journaled on ' + fmt(date) + '. Add a second entry for that day?')) return;
+        S.journal.push({ id: uid(), date, mood: formMood, text, wins, goalIds: formGoalIds });
+      } else {
+        const entry = S.journal.find(x => x.id === editingEntry);
+        Object.assign(entry, { mood: formMood, text, wins, goalIds: formGoalIds });
+      }
+      editingEntry = null; save(); render();
+    }
+    else if (act === 'j-del') {
+      if (confirm('Delete this entry?')) {
+        S.journal = S.journal.filter(x => x.id !== editingEntry);
+        editingEntry = null; save(); render();
+      }
+    }
+  };
+}
+
+/* ---------- settings ---------- */
+const dlg = $('#settings');
+$('#settingsBtn').addEventListener('click', () => {
+  $('#setMission').value = S.mission;
+  $('#setStart').value = S.startDate || todayStr();
+  dlg.showModal();
+});
+$('#setClose').addEventListener('click', () => dlg.close());
+$('#setSave').addEventListener('click', () => {
+  S.mission = $('#setMission').value.trim();
+  if ($('#setStart').value) S.startDate = $('#setStart').value;
+  save(); dlg.close(); render();
+});
+$('#exportBtn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'buddy-backup-' + todayStr() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+$('#importBtn').addEventListener('click', () => $('#importFile').click());
+$('#importFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data || typeof data !== 'object' || !('goals' in data) || !('journal' in data)) {
+      throw new Error('not a Buddy backup');
+    }
+    if (confirm('Replace everything currently in the app with this backup?')) {
+      S = Object.assign(structuredClone(DEFAULT), data);
+      save(); dlg.close(); render();
+    }
+  } catch (err) {
+    alert('Could not import that file: ' + err.message);
+  }
+  e.target.value = '';
+});
+$('#resetBtn').addEventListener('click', () => {
+  if (confirm('Erase ALL goals, journal entries, and settings? Consider exporting a backup first.') &&
+      confirm('Really erase everything?')) {
+    S = structuredClone(DEFAULT);
+    save(); dlg.close(); render();
+  }
+});
+
+render();
+</script>
+</body>
+</html>
