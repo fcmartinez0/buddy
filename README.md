@@ -1,8 +1,9 @@
-# Buddy — a personal 6-month tracker
+# Buddy — a personal goal, journal & budget tracker
 
-A single-file app for one 6-month push: journal daily, track a handful of goals,
-and stay pointed at them. No accounts, no server, no build step — everything
-lives in your browser's localStorage.
+A single-file app for one focused push — you choose the window (3 to 24
+months): journal daily, track goals and habits, budget your money, and stay
+pointed at all of it. No accounts, no server, no build step — everything lives
+in your browser's localStorage.
 
 ## Use it
 
@@ -10,20 +11,39 @@ Open `index.html` in any browser. That's it — data lives in that browser's
 localStorage. To use it on your iPhone **and** your MacBook with the same data,
 see the sync setup below.
 
-On first run you pick a start date and write a one-line mission; the window
-ends exactly 6 months later and a countdown stays in the header.
+On first run you pick a start date, a window length, and a one-line mission;
+a countdown to the end of the window stays in the header.
 
 ## What's inside
 
 - **Today** — day counter, journal streak, up to 3 focus items for the day
-  (linkable to goals), a quick journal box, per-goal progress bars, and a
-  calendar heatmap of your journaling consistency across the whole window.
+  (linkable to goals), a daily-habit tracker with streaks, a pomodoro focus
+  timer (25+5), a quick journal box, a guided weekly review, a rotating
+  research-backed "technique of the day", per-goal progress bars, and a
+  calendar heatmap of journaling consistency across the whole window.
 - **Goals** — each goal has a "why", optional target date, and milestones;
   progress comes from checking milestones off (or a manual slider via
   check-ins for goals without them). A nudge appears when a goal has gone a
-  week without a check-in.
+  week without a check-in. One-click templates cover networking,
+  cybersecurity, gym, screen time, and saving money.
+- **Budget** — monthly income + planned spending per category, quick expense
+  logging, this-month-vs-plan bars with overspend warnings, and a cumulative
+  savings projection chart with **scenario sliders**: drag any category to
+  "what if I spent this much instead" and watch where the dashed what-if line
+  lands by the end of your window.
 - **Journal** — one entry a day (more if you insist): mood, wins, free text,
-  and tags linking the entry to goals. Editable after the fact.
+  and tags linking the entry to goals. Weekly reviews land here too.
+
+## The productivity science baked in
+
+The app's mechanics come from behavior-change research rather than vibes:
+**implementation intentions** (if-then phrasing in the focus list — a
+meta-analysis of 94 studies found medium-to-large effects on follow-through),
+**habit stacking and environment design** (habit suggestions and templates),
+**the progress principle** (wins line, streaks, visible progress bars),
+**weekly reviews**, the **fresh start effect** (the window itself), and
+**pay-yourself-first budgeting**. Fifteen techniques rotate daily on the
+Today tab.
 
 ## iPhone + MacBook, synced
 

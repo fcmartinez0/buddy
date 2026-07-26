@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Buddy">
-<title>Buddy — 6-Month Tracker</title>
+<title>Buddy — Personal Tracker</title>
 <style>
   :root {
     color-scheme: light;
@@ -218,6 +218,41 @@
   .goal-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-2); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
   .goal-tag .dot { width: 8px; height: 8px; }
   details.adv summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip {
+    appearance: none; font: inherit; font-size: 13px; background: none; cursor: pointer;
+    border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; color: var(--ink-2);
+  }
+  .chip:hover { color: var(--ink); border-color: var(--baseline); }
+
+  .hrow { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--grid); }
+  .hrow:last-of-type { border-bottom: none; }
+  .hrow input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--good); flex-shrink: 0; }
+  .hrow .hn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hweek { display: flex; gap: 3px; }
+  .hdot { width: 8px; height: 8px; border-radius: 50%; background: var(--grid); }
+  .hdot.on { background: var(--good); }
+  .hstreak { font-size: 12px; color: var(--muted); min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .pomo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .pomo .time { font-size: 38px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .pomo .mode { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .tipcard p { margin: 0; }
+  .tipcard .tn { font-weight: 600; }
+
+  .over { color: var(--critical); font-size: 12px; white-space: nowrap; }
+  .loglist { list-style: none; margin: 10px 0 0; padding: 0; font-size: 14px; }
+  .loglist li { display: flex; gap: 10px; align-items: baseline; border-top: 1px solid var(--grid); padding: 5px 0; }
+  .loglist .d { color: var(--muted); font-size: 12px; flex: 0 0 44px; }
+  .loglist .amt { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .scen-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 14px; }
+  .scen-row .sn { flex: 0 0 30%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .scen-row input[type=range] { flex: 1; }
+  .scen-row .sv { flex: 0 0 120px; text-align: right; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .proj-wrap { overflow-x: auto; }
+  svg.proj { width: 100%; min-width: 480px; height: auto; display: block; }
+  svg.proj text { font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--muted); }
 </style>
 </head>
 <body>
@@ -236,6 +271,7 @@
   <nav id="tabs" hidden>
     <button data-view="today">Today</button>
     <button data-view="goals">Goals</button>
+    <button data-view="budget">Budget</button>
     <button data-view="journal">Journal</button>
   </nav>
   <main id="view"></main>
@@ -245,8 +281,16 @@
   <h2>Settings</h2>
   <label class="f" for="setMission">Mission — the one line that keeps you pointed</label>
   <input type="text" id="setMission" maxlength="140" placeholder="e.g. Ship my app and run a 10k by January">
-  <label class="f" for="setStart">Start date (window ends 6 months later)</label>
-  <input type="date" id="setStart">
+  <div class="row">
+    <div><label class="f" for="setStart">Start date</label>
+      <input type="date" id="setStart"></div>
+    <div><label class="f" for="setMonths">Window length</label>
+      <select id="setMonths">
+        <option value="3">3 months</option><option value="6">6 months</option>
+        <option value="9">9 months</option><option value="12">12 months</option>
+        <option value="18">18 months</option><option value="24">24 months</option>
+      </select></div>
+  </div>
   <div class="row" style="margin-top:16px">
     <button class="btn" id="setSave">Save</button>
     <button class="btn ghost" id="setClose">Close</button>
@@ -289,9 +333,14 @@
 
 /* ---------- storage ---------- */
 const KEY = 'buddy-tracker-v1';
-// Every goal/journal/focus entity carries `u` (last-modified ms) and deletes
-// are recorded in `trash` so two devices can merge without resurrecting data.
-const DEFAULT = { v: 1, startDate: null, mission: '', metaU: 0, goals: [], journal: [], focus: {}, trash: {} };
+// Every goal/journal/focus/habit/budget entity carries `u` (last-modified ms)
+// and deletes are recorded in `trash` so devices can merge without resurrecting data.
+const DEFAULT = {
+  v: 2, startDate: null, months: 6, mission: '', metaU: 0,
+  goals: [], journal: [], focus: {}, habits: [], pomo: {},
+  budget: { currency: '$', income: 0, u: 0, categories: [], logs: [] },
+  trash: {}
+};
 let S = load();
 function load() {
   try {
@@ -319,11 +368,15 @@ function addMonths(s, n) {
 function diffDays(a, b) { return Math.round((toDate(b) - toDate(a)) / 864e5); }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmt(s) { const d = toDate(s); return MONTHS[d.getMonth()] + ' ' + d.getDate(); }
+function fmtY(s) {
+  const d = toDate(s);
+  return fmt(s) + (d.getFullYear() !== new Date().getFullYear() ? ', ' + d.getFullYear() : '');
+}
 function fmtLong(s) {
   const d = toDate(s);
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
-function endDate() { return S.startDate ? addMonths(S.startDate, 6) : null; }
+function endDate() { return S.startDate ? addMonths(S.startDate, S.months || 6) : null; }
 
 /* ---------- helpers ---------- */
 function esc(t) {
@@ -355,16 +408,108 @@ function journalStreak() {
   while (days.has(d)) { n++; d = addDays(d, -1); }
   return n;
 }
+function habitStreak(h) {
+  let d = todayStr(), n = 0;
+  if (!h.days[d]) d = addDays(d, -1);
+  while (h.days[d]) { n++; d = addDays(d, -1); }
+  return n;
+}
+
+/* ---------- research-backed technique library ---------- */
+const TIPS = [
+  { n: 'Implementation intentions', d: 'Phrase every plan as “If it’s [time/situation], then I will [action]”. Across 94 studies this roughly doubled follow-through versus plain intentions — the focus box below is built for it.' },
+  { n: 'Habit stacking', d: 'Attach a new habit to one you already do: “After I pour my morning coffee, I message one new contact.” The old routine becomes the trigger.' },
+  { n: 'The two-minute rule', d: 'Shrink a dreaded habit to its two-minute version — “put on gym clothes”, not “work out”. Showing up is the habit; volume comes later.' },
+  { n: 'Environment design', d: 'Make the good thing easy and the bad thing invisible: gym bag packed by the door, phone charging outside the bedroom, savings auto-transferred on payday.' },
+  { n: 'Rule of 3', d: 'Pick at most three outcomes for the day, before the day picks them for you. That’s why the focus list caps at three.' },
+  { n: 'Pomodoro', d: '25 minutes on one thing, 5 minutes off, repeat. The countdown turns “work on it” into a game you can win four times before lunch.' },
+  { n: 'Don’t break the chain', d: 'Streaks are motivating because losing them hurts. Protect the chain with a bare-minimum version on bad days — two sentences in the journal still counts.' },
+  { n: 'The weekly review', d: 'Once a week, look back before you look forward: what worked, what got in the way, top 3 for next week. It converts drifting into steering.' },
+  { n: 'Temptation bundling', d: 'Only allow a guilty pleasure while doing the hard thing — that podcast only at the gym, that show only on the treadmill.' },
+  { n: 'Approach beats avoidance', d: 'Frame goals as what you will do, not what you’ll stop: “phone down by 10pm and read” sticks better than “less scrolling”.' },
+  { n: 'The progress principle', d: 'Nothing sustains motivation like visible small wins — that’s what the “wins” line in your journal is for. Write even tiny ones down.' },
+  { n: 'Fresh start effect', d: 'Mondays, month starts, and day 1 of a window make change feel easier. If you slipped, the next fresh start is tomorrow morning — take it.' },
+  { n: 'Grayscale your phone', d: 'Removing color removes half the pull. Grayscale mode plus muted notifications is the cheapest screen-time cut there is.' },
+  { n: 'Pay yourself first', d: 'Saving what’s left over never works. Auto-transfer savings the moment income lands, then spend what remains — the Budget tab plans around this.' },
+  { n: 'Process over outcome', d: 'You don’t control “get a job in cybersecurity”; you control “25 lab rooms and 5 coffee chats a month”. Set milestones you can execute.' },
+];
+function tipOfTheDay() {
+  const d = toDate(todayStr());
+  const doy = Math.floor((d - new Date(d.getFullYear(), 0, 1)) / 864e5);
+  return TIPS[doy % TIPS.length];
+}
+
+const TEMPLATES = [
+  { n: 'Networking', title: 'Grow my professional network', why: 'Opportunities come through people — this is luck surface area.',
+    ms: ['Update LinkedIn + resume', 'List 20 people or companies to reach', 'Message 5 new people this month', 'Attend 2 events or meetups', 'Hold 8 coffee chats', 'Follow up with everyone within 48h'] },
+  { n: 'Cybersecurity', title: 'Break into cybersecurity', why: 'Skills that compound and work I actually find interesting.',
+    ms: ['Pick a path and a cert (Security+ / eJPT)', 'Finish a foundations course', 'Set up a home lab', 'Complete 25 TryHackMe/HTB rooms', 'Publish 3 write-ups', 'Book the exam', 'Pass the cert'] },
+  { n: 'Gym', title: 'Make the gym a habit', why: 'Energy and a clear head beat waiting for motivation.',
+    ms: ['Pick a simple program and schedule', 'Pack the bag the night before, every time', '2 sessions a week for 2 weeks', '3 sessions a week for a month', '8 weeks consistent', '12 weeks consistent'] },
+  { n: 'Screen time', title: 'Cut my screen time', why: 'Reclaim the hours for goals that actually matter to me.',
+    ms: ['Measure a baseline week', 'Kill non-human notifications', 'Grayscale + app limits on', 'Phone out of the bedroom', 'Under my daily target for a week', 'Under target for a full month'] },
+  { n: 'Save money', title: 'Save consistently', why: 'Options and calm come from a cushion.',
+    ms: ['Set up the Budget tab with real numbers', 'Auto-transfer to savings on payday', 'First month under budget', '3 months under budget', 'Hit my savings target'] },
+];
+
+/* ---------- pomodoro (state survives re-renders; DOM is repainted) ---------- */
+const POMO_FOCUS = 25 * 60, POMO_BREAK = 5 * 60;
+const pomo = { mode: 'focus', left: POMO_FOCUS, running: false, timer: null };
+function pomoPaint() {
+  const el = document.getElementById('pomoTime');
+  if (!el) return;
+  el.textContent = String(Math.floor(pomo.left / 60)).padStart(2, '0') + ':' + String(pomo.left % 60).padStart(2, '0');
+  document.getElementById('pomoMode').textContent = pomo.mode;
+  document.getElementById('pomoBtn').textContent = pomo.running ? 'Pause' : 'Start';
+  const n = S.pomo[todayStr()] || 0;
+  document.getElementById('pomoCount').textContent = n ? n + ' pomodoro' + (n === 1 ? '' : 's') + ' done today' : '';
+}
+function pomoBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880; g.gain.value = 0.08;
+    o.start(); o.stop(ctx.currentTime + 0.35);
+  } catch (e) { /* audio unavailable — silent is fine */ }
+}
+function pomoToggle() {
+  pomo.running = !pomo.running;
+  clearInterval(pomo.timer);
+  if (pomo.running) pomo.timer = setInterval(() => {
+    pomo.left--;
+    if (pomo.left <= 0) {
+      if (pomo.mode === 'focus') {
+        S.pomo[todayStr()] = (S.pomo[todayStr()] || 0) + 1;
+        save();
+        pomo.mode = 'break'; pomo.left = POMO_BREAK;
+      } else {
+        pomo.mode = 'focus'; pomo.left = POMO_FOCUS;
+      }
+      pomoBeep();
+    }
+    pomoPaint();
+  }, 1000);
+  pomoPaint();
+}
+function pomoReset() {
+  pomo.running = false; clearInterval(pomo.timer);
+  pomo.mode = 'focus'; pomo.left = POMO_FOCUS;
+  pomoPaint();
+}
 
 /* ---------- shell ---------- */
 let view = 'today';
 const $ = sel => document.querySelector(sel);
 
-// #view survives re-renders, so views register their click handler here
+// #view survives re-renders, so views register their click/input handlers here
 // instead of calling addEventListener (which would stack a copy per render).
 let onViewClick = null;
+let onViewInput = null;
+let reviewOpen = false;
 
 function render() {
+  onViewClick = null; onViewInput = null;
   const hasSetup = !!S.startDate;
   $('#tabs').hidden = !hasSetup;
   $('#countPill').hidden = !hasSetup;
@@ -383,36 +528,47 @@ function render() {
     b.setAttribute('aria-current', b.dataset.view === view ? 'true' : 'false'));
   if (view === 'today') renderToday();
   else if (view === 'goals') renderGoals();
+  else if (view === 'budget') renderBudget();
   else renderJournal();
 }
 
 document.querySelectorAll('#tabs button').forEach(b =>
   b.addEventListener('click', () => { view = b.dataset.view; render(); }));
 $('#view').addEventListener('click', e => { if (onViewClick) onViewClick(e); });
+$('#view').addEventListener('input', e => { if (onViewInput) onViewInput(e); });
 
 /* ---------- first-run setup ---------- */
 function renderSetup() {
+  const monthOpts = m => [3, 6, 9, 12, 18, 24].map(n =>
+    `<option value="${n}" ${n === m ? 'selected' : ''}>${n} months</option>`).join('');
   $('#view').innerHTML = `
     <div class="card">
-      <h2>Set up your 6 months</h2>
-      <p>Pick a start date and write a one-line mission. Everything in here — goals, journal, focus — lives inside that window.</p>
+      <h2>Set up your window</h2>
+      <p>Pick how long this push runs, when it starts, and write a one-line mission. Everything in here — goals, habits, journal, budget — lives inside that window.</p>
       <label class="f" for="fMission">Mission</label>
-      <input type="text" id="fMission" maxlength="140" placeholder="e.g. Ship my app and run a 10k by January">
-      <label class="f" for="fStart">Start date</label>
-      <input type="date" id="fStart" value="${todayStr()}">
+      <input type="text" id="fMission" maxlength="140" placeholder="e.g. Break into cybersecurity and get my health + money in order">
+      <div class="row">
+        <div><label class="f" for="fStart">Start date</label>
+          <input type="date" id="fStart" value="${todayStr()}"></div>
+        <div><label class="f" for="fMonths">Length</label>
+          <select id="fMonths">${monthOpts(6)}</select></div>
+      </div>
       <p class="hint" id="fEnds"></p>
       <button class="btn" id="fGo" style="margin-top:12px">Start tracking</button>
-      <p class="hint">Data is stored only in this browser. You can export a backup any time from settings.</p>
+      <p class="hint">Data is stored only in this browser. You can export a backup or set up cross-device sync any time from settings.</p>
     </div>`;
   const upd = () => {
-    const v = $('#fStart').value;
-    $('#fEnds').textContent = v ? 'Your window runs through ' + fmt(addMonths(v, 6)) + '.' : '';
+    const v = $('#fStart').value, m = Number($('#fMonths').value) || 6;
+    $('#fEnds').textContent = v ? 'Your window runs through ' + fmtY(addMonths(v, m)) + '.' : '';
   };
-  $('#fStart').addEventListener('input', upd); upd();
+  $('#fStart').addEventListener('input', upd);
+  $('#fMonths').addEventListener('input', upd);
+  upd();
   $('#fGo').addEventListener('click', () => {
     const v = $('#fStart').value;
     if (!v) return;
     S.startDate = v;
+    S.months = Number($('#fMonths').value) || 6;
     S.mission = $('#fMission').value.trim();
     S.metaU = Date.now();
     save(); render();
@@ -451,10 +607,51 @@ function renderToday() {
   const goalOpts = acts.map(g => `<option value="${g.id}">${esc(g.title)}</option>`).join('');
   const addFocus = focus.length < 3 ? `
     <div class="row" style="margin-top:10px">
-      <input type="text" id="focusText" placeholder="One concrete thing for today…" maxlength="120">
+      <input type="text" id="focusText" placeholder="I’ll [do what] at [when]…" maxlength="120">
       ${acts.length ? `<select id="focusGoal" class="tight" style="max-width:170px"><option value="">(no goal)</option>${goalOpts}</select>` : ''}
       <button class="btn tight" data-act="focus-add">Add</button>
-    </div>` : `<p class="hint">Three is plenty. Finish these first.</p>`;
+    </div>
+    <p class="hint">Name the when and where — if-then plans roughly double follow-through.</p>` : `<p class="hint">Three is plenty. Finish these first.</p>`;
+
+  const habitRows = S.habits.map(h => {
+    const strip = [...Array(7)].map((_, i) => {
+      const d = addDays(t, i - 6);
+      return `<span class="hdot ${h.days[d] ? 'on' : ''}" title="${fmt(d)}"></span>`;
+    }).join('');
+    const sk = habitStreak(h);
+    return `<div class="hrow">
+      <input type="checkbox" data-act="habit-toggle" data-id="${h.id}" ${h.days[t] ? 'checked' : ''} aria-label="done today">
+      <span class="hn">${esc(h.name)}</span>
+      <span class="hweek" aria-label="last 7 days">${strip}</span>
+      <span class="hstreak">${sk ? sk + '\u{1F525}' : '—'}</span>
+      <button class="icon tight" data-act="habit-del" data-id="${h.id}" aria-label="delete habit">&times;</button>
+    </div>`;
+  }).join('');
+  const habitChips = ['Gym session', 'No phone after 10pm', 'Message 1 new contact', 'No-spend day']
+    .filter(n => !S.habits.some(h => h.name === n))
+    .map(n => `<button class="chip" data-act="habit-chip" data-name="${esc(n)}">+ ${esc(n)}</button>`).join('');
+
+  const lastReview = S.journal.filter(e => e.review).map(e => e.date).sort().pop();
+  const reviewDue = !lastReview || diffDays(lastReview, t) >= 7;
+  const reviewCard = !reviewDue ? '' : `
+    <div class="card">
+      <h2>Weekly review <span class="sub">· ${lastReview ? 'last one ' + fmt(lastReview) : 'first one'}</span></h2>
+      ${reviewOpen ? `
+        <label class="f" for="rWell">What worked this week?</label>
+        <textarea id="rWell" style="min-height:56px"></textarea>
+        <label class="f" for="rStuck">What got in the way?</label>
+        <textarea id="rStuck" style="min-height:56px"></textarea>
+        <label class="f" for="rNext">Top 3 priorities for next week</label>
+        <textarea id="rNext" style="min-height:56px"></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="btn tight" data-act="rev-save">Save review</button>
+          <button class="btn ghost tight" data-act="rev-cancel">Cancel</button>
+        </div>` : `
+        <p class="hint" style="margin-top:0">Five minutes of looking back turns drifting into steering. Saved to your journal.</p>
+        <button class="btn ghost" data-act="rev-open">Start review</button>`}
+    </div>`;
+
+  const tip = tipOfTheDay();
 
   const bars = acts.map(g => {
     const p = progressOf(g);
@@ -492,8 +689,32 @@ function renderToday() {
       ${addFocus}
     </div>
     <div class="card">
+      <h2>Daily habits</h2>
+      ${habitRows || '<p class="empty">Small daily reps — gym, phone-free evenings, outreach. Streaks do the motivating.</p>'}
+      <div class="row" style="margin-top:10px">
+        <input type="text" id="habitText" placeholder="New daily habit…" maxlength="60">
+        <button class="btn tight" data-act="habit-add">Add</button>
+      </div>
+      ${habitChips ? `<div class="chips">${habitChips}</div>` : ''}
+    </div>
+    <div class="card">
+      <h2>Focus timer <span class="sub">· 25 on, 5 off</span></h2>
+      <div class="pomo">
+        <span class="time" id="pomoTime"></span>
+        <span class="mode" id="pomoMode"></span>
+        <button class="btn tight" data-act="pomo-start" id="pomoBtn">Start</button>
+        <button class="btn ghost tight" data-act="pomo-reset">Reset</button>
+        <span class="hint" id="pomoCount" style="margin:0"></span>
+      </div>
+    </div>
+    <div class="card">
       <h2>Quick journal <span class="sub">· ${fmtLong(t)}</span></h2>
       ${quick}
+    </div>
+    ${reviewCard}
+    <div class="card tipcard">
+      <h2>Technique of the day</h2>
+      <p><span class="tn">${tip.n}.</span> ${tip.d}</p>
     </div>
     <div class="card">
       <h2>Goal progress</h2>
@@ -545,9 +766,38 @@ function renderToday() {
       if (!txt) return;
       S.journal.push({ id: uid(), date: t, mood: qMood, text: txt, wins: '', goalIds: [], u: Date.now() });
       save(); render();
+    } else if (act === 'habit-add' || act === 'habit-chip') {
+      const name = act === 'habit-chip' ? el.dataset.name : $('#habitText').value.trim();
+      if (!name) return;
+      S.habits.push({ id: uid(), name, days: {}, u: Date.now() });
+      save(); render();
+    } else if (act === 'habit-toggle') {
+      const h = S.habits.find(x => x.id === el.dataset.id);
+      if (el.checked) h.days[t] = 1; else delete h.days[t];
+      h.u = Date.now(); save(); render();
+    } else if (act === 'habit-del') {
+      const h = S.habits.find(x => x.id === el.dataset.id);
+      if (confirm('Delete the habit "' + h.name + '" and its history?')) {
+        S.trash[h.id] = Date.now();
+        S.habits = S.habits.filter(x => x.id !== h.id);
+        save(); render();
+      }
+    } else if (act === 'pomo-start') { pomoToggle(); }
+    else if (act === 'pomo-reset') { pomoReset(); }
+    else if (act === 'rev-open') { reviewOpen = true; render(); }
+    else if (act === 'rev-cancel') { reviewOpen = false; render(); }
+    else if (act === 'rev-save') {
+      const well = $('#rWell').value.trim(), stuck = $('#rStuck').value.trim(), next = $('#rNext').value.trim();
+      if (!well && !stuck && !next) return;
+      const text = 'What worked:\n' + (well || '—') +
+        '\n\nWhat got in the way:\n' + (stuck || '—') +
+        '\n\nTop 3 next week:\n' + (next || '—');
+      S.journal.push({ id: uid(), date: t, mood: 3, text, wins: '', goalIds: [], review: true, u: Date.now() });
+      reviewOpen = false; save(); render();
     }
   };
-  wireHeatmapTips();
+  wireTips();
+  pomoPaint();
 }
 
 /* ---------- heatmap ---------- */
@@ -581,12 +831,12 @@ function heatmapHTML() {
     }).join('');
     return `<tr><td class="dlab off">${lab}</td>${cells}</tr>`;
   }).join('');
-  return `<div class="heat"><table aria-label="journal days across the 6-month window">
+  return `<div class="heat"><table aria-label="journal days across the window">
     <tr class="mlab"><td class="dlab"></td>${mlab}</tr>${rows}</table></div>`;
 }
-function wireHeatmapTips() {
+function wireTips() {
   const tip = $('#tip');
-  document.querySelectorAll('.heat td[data-tip]').forEach(td => {
+  document.querySelectorAll('#view [data-tip]').forEach(td => {
     td.addEventListener('mouseenter', () => {
       const r = td.getBoundingClientRect();
       tip.textContent = td.dataset.tip;
@@ -606,6 +856,9 @@ function renderGoals() {
   const form = goalFormOpen ? `
     <div class="card">
       <h2>New goal</h2>
+      <div class="chips" style="margin-top:0">
+        ${TEMPLATES.map((tp, i) => `<button class="chip" data-act="goal-tpl" data-i="${i}">${tp.n}</button>`).join('')}
+      </div>
       <label class="f" for="gTitle">What are you going after?</label>
       <input type="text" id="gTitle" maxlength="80" placeholder="e.g. Run a 10k under 55 minutes">
       <label class="f" for="gWhy">Why does it matter? (you’ll see this when motivation dips)</label>
@@ -679,6 +932,12 @@ function renderGoals() {
     const act = el.dataset.act;
     const g = el.dataset.gid ? goalById(el.dataset.gid) : null;
     if (act === 'goal-new') { goalFormOpen = true; render(); }
+    else if (act === 'goal-tpl') {
+      const tp = TEMPLATES[Number(el.dataset.i)];
+      $('#gTitle').value = tp.title;
+      $('#gWhy').value = tp.why;
+      $('#gMs').value = tp.ms.join('\n');
+    }
     else if (act === 'goal-cancel') { goalFormOpen = false; render(); }
     else if (act === 'goal-save') {
       const title = $('#gTitle').value.trim();
@@ -773,6 +1032,7 @@ function renderJournal() {
     }).join('');
     list += `<div class="entry">
       <div class="eh"><span class="mood">${MOODS[e.mood]}</span><span class="d">${fmtLong(e.date)}</span>
+        ${e.review ? '<span class="badge">weekly review</span>' : ''}
         <span class="spacer"></span>
         <button class="linkish" data-act="j-edit" data-id="${e.id}">edit</button></div>
       ${e.wins ? `<p class="wins">★ ${esc(e.wins)}</p>` : ''}
@@ -840,17 +1100,275 @@ function renderJournal() {
   };
 }
 
+/* ---------- Budget ---------- */
+let budgetEditOpen = false;
+let scen = {}; // catId -> percent of planned spend; scenario sliders, deliberately not persisted
+
+function fmtMoney(n) {
+  const c = S.budget.currency || '$';
+  return (n < 0 ? '−' : '') + c + Math.abs(Math.round(n)).toLocaleString();
+}
+function monthKeyOf(s) { return s.slice(0, 7); }
+function monthsInWindow() {
+  const out = [];
+  const d = toDate(S.startDate); d.setDate(1);
+  const end = toDate(endDate());
+  while (d <= end) {
+    out.push({
+      key: toStr(d).slice(0, 7),
+      label: MONTHS[d.getMonth()] + (d.getMonth() === 0 ? ' ' + String(d.getFullYear()).slice(2) : '')
+    });
+    d.setMonth(d.getMonth() + 1);
+  }
+  return out;
+}
+function spentIn(mk, catId) {
+  return S.budget.logs.reduce((a, l) =>
+    a + ((monthKeyOf(l.date) === mk && (!catId || l.catId === catId)) ? l.amount : 0), 0);
+}
+function plannedTotal() { return S.budget.categories.reduce((a, c) => a + c.planned, 0); }
+function scenTotal() { return S.budget.categories.reduce((a, c) => a + c.planned * ((scen[c.id] ?? 100) / 100), 0); }
+
+// Cumulative savings across the window: past months use actual spending for
+// both lines; the current month onward diverges plan (planned) vs what-if (scenario).
+function projection() {
+  const mks = monthsInWindow(), nowMk = monthKeyOf(todayStr());
+  const inc = S.budget.income;
+  const base = [], what = [];
+  let b = 0, w = 0;
+  for (const m of mks) {
+    if (m.key < nowMk) { const s = inc - spentIn(m.key); b += s; w += s; }
+    else { b += inc - plannedTotal(); w += inc - scenTotal(); }
+    base.push(b); what.push(w);
+  }
+  return { mks, base, what };
+}
+function scenSummaryText() {
+  const p = projection();
+  if (!p.mks.length) return '';
+  const bEnd = p.base[p.base.length - 1], wEnd = p.what[p.what.length - 1];
+  const d = wEnd - bEnd;
+  return 'By ' + fmtY(endDate()) + ': plan saves ' + fmtMoney(bEnd) + ' · what-if saves ' + fmtMoney(wEnd) +
+    (d ? ' (' + (d > 0 ? '+' : '') + fmtMoney(d).replace('−', '−') + ')' : '');
+}
+function projChartHTML() {
+  const { mks, base, what } = projection();
+  if (mks.length < 2) return '';
+  const W = 620, H = 220, L = 58, R = 74, T = 14, B = 26;
+  const all = [...base, ...what, 0];
+  let lo = Math.min(...all), hi = Math.max(...all);
+  if (hi === lo) hi = lo + 1;
+  const x = i => L + (W - L - R) * (i / (mks.length - 1));
+  const y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  const pts = arr => arr.map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
+  const ticks = [lo, (lo + hi) / 2, hi].map(v =>
+    `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)" stroke-width="1"/>
+     <text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${fmtMoney(v)}</text>`).join('');
+  const zero = lo < 0 ? `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--baseline)" stroke-width="1"/>` : '';
+  const step = Math.max(1, Math.ceil(mks.length / 7));
+  const xlabels = mks.map((m, i) => i % step ? '' :
+    `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${m.label}</text>`).join('');
+  const last = mks.length - 1;
+  let yA = y(base[last]), yB = y(what[last]);
+  if (Math.abs(yA - yB) < 13) {
+    const mid = (yA + yB) / 2, s = yA >= yB ? 1 : -1;
+    yA = mid + 7 * s; yB = mid - 7 * s;
+  }
+  const col = (W - L - R) / (mks.length - 1);
+  const hover = mks.map((m, i) =>
+    `<rect x="${(x(i) - col / 2).toFixed(1)}" y="0" width="${col.toFixed(1)}" height="${H}" fill="transparent"
+       data-tip="${m.label}: plan ${fmtMoney(base[i])} · what-if ${fmtMoney(what[i])}"/>`).join('');
+  return `<div class="proj-wrap"><svg class="proj" viewBox="0 0 ${W} ${H}" role="img" aria-label="cumulative savings, plan versus scenario">
+    ${ticks}${zero}
+    <polyline points="${pts(base)}" fill="none" stroke="var(--s1)" stroke-width="2"/>
+    <polyline points="${pts(what)}" fill="none" stroke="var(--s2)" stroke-width="2" stroke-dasharray="6 4"/>
+    <circle cx="${x(last).toFixed(1)}" cy="${y(base[last]).toFixed(1)}" r="3.5" fill="var(--s1)"/>
+    <circle cx="${x(last).toFixed(1)}" cy="${y(what[last]).toFixed(1)}" r="3.5" fill="var(--s2)"/>
+    <text x="${(x(last) + 8).toFixed(1)}" y="${(yA + 4).toFixed(1)}" fill="var(--ink-2)">Plan</text>
+    <text x="${(x(last) + 8).toFixed(1)}" y="${(yB + 4).toFixed(1)}" fill="var(--ink-2)">What-if</text>
+    ${xlabels}${hover}
+  </svg></div>`;
+}
+function commitPlanFields() {
+  const inc = $('#bIncome');
+  if (inc) {
+    S.budget.income = Number(inc.value) || 0;
+    S.budget.currency = ($('#bCur').value.trim() || '$').slice(0, 3);
+    S.budget.u = Date.now();
+  }
+}
+
+function renderBudget() {
+  const bud = S.budget, t = todayStr(), mk = monthKeyOf(t);
+  const hasPlan = bud.income > 0 || bud.categories.length > 0;
+  if (!hasPlan) budgetEditOpen = true;
+  const PRESETS = ['Rent', 'Groceries', 'Transport', 'Eating out', 'Subscriptions', 'Fun', 'Gym'];
+
+  const editUi = budgetEditOpen ? `
+    <div class="card">
+      <h2>Monthly plan</h2>
+      <div class="row">
+        <div><label class="f" for="bIncome">Monthly income (after tax)</label>
+          <input type="number" id="bIncome" min="0" step="1" value="${bud.income || ''}" placeholder="0"></div>
+        <div class="tight" style="max-width:90px"><label class="f" for="bCur">Currency</label>
+          <input type="text" id="bCur" maxlength="3" value="${esc(bud.currency || '$')}"></div>
+      </div>
+      <label class="f">Spending categories — planned amount per month</label>
+      ${bud.categories.map(c => `<div class="row" style="margin-bottom:6px">
+        <span>${esc(c.name)}</span>
+        <span class="tight" style="color:var(--ink-2);font-variant-numeric:tabular-nums">${fmtMoney(c.planned)}</span>
+        <button class="icon tight" data-act="cat-del" data-id="${c.id}" aria-label="remove category">&times;</button>
+      </div>`).join('')}
+      <div class="row">
+        <input type="text" id="catName" placeholder="Category" maxlength="30">
+        <input type="number" id="catAmt" class="tight" style="max-width:130px" placeholder="Amount/mo" min="0" step="1">
+        <button class="btn ghost tight" data-act="cat-add">Add</button>
+      </div>
+      <div class="chips">${PRESETS.filter(p => !bud.categories.some(c => c.name === p))
+        .map(p => `<button class="chip" data-act="cat-preset" data-name="${p}">+ ${p}</button>`).join('')}</div>
+      <p class="hint">Planned savings = income − categories. “Pay yourself first”: make Savings its own auto-transfer, not what’s left over.</p>
+      <button class="btn" data-act="bud-save" style="margin-top:10px">Done</button>
+    </div>` : `<button class="btn ghost" data-act="bud-edit" style="margin-bottom:14px">Edit monthly plan</button>`;
+
+  if (!hasPlan) {
+    $('#view').innerHTML = editUi;
+  } else {
+    const spent = spentIn(mk);
+    const planT = plannedTotal();
+    const proj = projection();
+    const projEnd = proj.base.length ? proj.base[proj.base.length - 1] : 0;
+
+    const rows = bud.categories.map(c => {
+      const s = spentIn(mk, c.id);
+      const over = s > c.planned ? s - c.planned : 0;
+      const p = c.planned > 0 ? Math.min(100, 100 * s / c.planned) : (s > 0 ? 100 : 0);
+      return `<div class="bar-row">
+        <span class="name"><span class="t">${esc(c.name)}</span></span>
+        <span class="bar"><i style="width:${p}%;background:${over ? 'var(--critical)' : 'var(--seq)'}"></i></span>
+        <span class="pct" style="flex-basis:120px">${fmtMoney(s)} / ${fmtMoney(c.planned)}</span>
+        ${over ? `<span class="over">⚠ over by ${fmtMoney(over)}</span>` : ''}
+      </div>`;
+    }).join('');
+
+    const catName = id => { const c = bud.categories.find(x => x.id === id); return c ? c.name : '?'; };
+    const logs = bud.logs.filter(l => monthKeyOf(l.date) === mk)
+      .sort((a, b) => b.date.localeCompare(a.date) || (b.u || 0) - (a.u || 0)).slice(0, 8);
+    const logList = logs.map(l => `<li>
+      <span class="d">${fmt(l.date)}</span><span>${esc(catName(l.catId))}</span>
+      ${l.note ? `<span class="hint" style="margin:0">${esc(l.note)}</span>` : ''}
+      <span class="amt">${fmtMoney(l.amount)}</span>
+      <button class="icon tight" data-act="log-del" data-id="${l.id}" aria-label="delete expense">&times;</button>
+    </li>`).join('');
+
+    $('#view').innerHTML = `
+      ${editUi}
+      <div class="tiles">
+        <div class="tile"><div class="v">${fmtMoney(spent)}</div><div class="l">spent this month</div></div>
+        <div class="tile"><div class="v">${fmtMoney(planT - spent)}</div><div class="l">left in this month’s plan</div></div>
+        <div class="tile"><div class="v">${fmtMoney(bud.income - planT)}</div><div class="l">planned savings / month</div></div>
+        <div class="tile"><div class="v">${fmtMoney(projEnd)}</div><div class="l">projected by ${fmtY(endDate())}</div></div>
+      </div>
+      <div class="card">
+        <h2>Log spending</h2>
+        <div class="row">
+          <input type="number" id="logAmt" placeholder="0" min="0" step="0.01" style="max-width:110px" class="tight">
+          <select id="logCat">${bud.categories.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+          <input type="text" id="logNote" placeholder="note (optional)" maxlength="60">
+          <button class="btn tight" data-act="log-add">Add</button>
+        </div>
+        ${logList ? `<ul class="loglist">${logList}</ul>` : '<p class="empty">Nothing logged this month yet.</p>'}
+      </div>
+      <div class="card">
+        <h2>This month vs plan</h2>
+        ${rows || '<p class="empty">Add categories to your plan first.</p>'}
+      </div>
+      <div class="card">
+        <h2>Savings projection <span class="sub">· scenario planning</span></h2>
+        <div class="legend" style="margin:0 0 8px">
+          <span class="k"><span class="sw" style="background:var(--s1)"></span>plan</span>
+          <span class="k"><span class="sw" style="background:repeating-linear-gradient(90deg,var(--s2) 0 6px,transparent 6px 10px)"></span>what-if scenario</span>
+        </div>
+        <div id="scenChart">${projChartHTML()}</div>
+        <p class="hint" id="scenSummary">${scenSummaryText()}</p>
+        ${bud.categories.map(c => `<div class="scen-row">
+          <span class="sn">${esc(c.name)}</span>
+          <input type="range" min="0" max="150" value="${scen[c.id] ?? 100}" data-scen="${c.id}" aria-label="scenario spending for ${esc(c.name)}">
+          <span class="sv" id="sv-${c.id}">${scen[c.id] ?? 100}% · ${fmtMoney(c.planned * ((scen[c.id] ?? 100) / 100))}/mo</span>
+        </div>`).join('')}
+        <div class="row" style="margin-top:8px">
+          <button class="btn ghost tight" data-act="scen-reset">Reset scenario</button>
+          <span class="hint" style="margin:0">Drag a category to “what if I spent this much instead” — the dashed line lands where you’d be by ${fmtY(endDate())}.</span>
+        </div>
+      </div>`;
+  }
+
+  onViewInput = e => {
+    const r = e.target.closest('[data-scen]');
+    if (!r) return;
+    scen[r.dataset.scen] = Number(r.value);
+    const c = bud.categories.find(x => x.id === r.dataset.scen);
+    $('#sv-' + c.id).textContent = r.value + '% · ' + fmtMoney(c.planned * (Number(r.value) / 100)) + '/mo';
+    $('#scenChart').innerHTML = projChartHTML();
+    $('#scenSummary').textContent = scenSummaryText();
+    wireTips();
+  };
+
+  onViewClick = e => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const act = el.dataset.act;
+    if (act === 'bud-edit') { budgetEditOpen = true; render(); }
+    else if (act === 'bud-save') {
+      commitPlanFields();
+      budgetEditOpen = false; save(); render();
+    }
+    else if (act === 'cat-add') {
+      commitPlanFields();
+      const name = $('#catName').value.trim();
+      const amt = Number($('#catAmt').value);
+      if (!name || !(amt >= 0)) return;
+      S.budget.categories.push({ id: uid(), name, planned: amt, u: Date.now() });
+      S.budget.u = Date.now(); save(); render();
+    }
+    else if (act === 'cat-preset') {
+      $('#catName').value = el.dataset.name;
+      $('#catAmt').focus();
+    }
+    else if (act === 'cat-del') {
+      commitPlanFields();
+      S.trash[el.dataset.id] = Date.now();
+      S.budget.categories = S.budget.categories.filter(c => c.id !== el.dataset.id);
+      S.budget.u = Date.now(); save(); render();
+    }
+    else if (act === 'log-add') {
+      const amt = Number($('#logAmt').value);
+      if (!(amt > 0) || !$('#logCat')) return;
+      S.budget.logs.push({ id: uid(), date: t, catId: $('#logCat').value, amount: amt, note: $('#logNote').value.trim(), u: Date.now() });
+      save(); render();
+    }
+    else if (act === 'log-del') {
+      S.trash[el.dataset.id] = Date.now();
+      S.budget.logs = S.budget.logs.filter(l => l.id !== el.dataset.id);
+      save(); render();
+    }
+    else if (act === 'scen-reset') { scen = {}; render(); }
+  };
+  wireTips();
+}
+
 /* ---------- settings ---------- */
 const dlg = $('#settings');
 $('#settingsBtn').addEventListener('click', () => {
   $('#setMission').value = S.mission;
   $('#setStart').value = S.startDate || todayStr();
+  $('#setMonths').value = String(S.months || 6);
   dlg.showModal();
 });
 $('#setClose').addEventListener('click', () => dlg.close());
 $('#setSave').addEventListener('click', () => {
   S.mission = $('#setMission').value.trim();
   if ($('#setStart').value) S.startDate = $('#setStart').value;
+  S.months = Number($('#setMonths').value) || 6;
   S.metaU = Date.now();
   save(); dlg.close(); render();
 });
@@ -907,7 +1425,8 @@ function queueSync() {
 function mergeStates(a, b) {
   const out = structuredClone(DEFAULT);
   const meta = (b.metaU || 0) > (a.metaU || 0) ? b : a;
-  out.startDate = meta.startDate; out.mission = meta.mission; out.metaU = meta.metaU || 0;
+  out.startDate = meta.startDate; out.mission = meta.mission;
+  out.months = meta.months || 6; out.metaU = meta.metaU || 0;
   out.trash = Object.assign({}, a.trash, b.trash);
   const mergeById = (x = [], y = []) => {
     const m = new Map();
@@ -924,6 +1443,30 @@ function mergeStates(a, b) {
     const merged = mergeById((a.focus || {})[d], (b.focus || {})[d]);
     if (merged.length) out.focus[d] = merged;
   }
+  // habits: newer entity wins the name, but checked days union so neither device loses a rep
+  {
+    const m = new Map();
+    for (const h of (a.habits || [])) m.set(h.id, h);
+    for (const h of (b.habits || [])) {
+      const cur = m.get(h.id);
+      if (!cur) m.set(h.id, h);
+      else {
+        const win = (h.u || 0) > (cur.u || 0) ? h : cur;
+        m.set(h.id, Object.assign({}, win, { days: Object.assign({}, cur.days, h.days) }));
+      }
+    }
+    out.habits = [...m.values()].filter(h => !out.trash[h.id]);
+  }
+  for (const d of new Set([...Object.keys(a.pomo || {}), ...Object.keys(b.pomo || {})])) {
+    out.pomo[d] = Math.max((a.pomo || {})[d] || 0, (b.pomo || {})[d] || 0);
+  }
+  const ab = a.budget || DEFAULT.budget, bb = b.budget || DEFAULT.budget;
+  const bw = (bb.u || 0) > (ab.u || 0) ? bb : ab;
+  out.budget = {
+    currency: bw.currency || '$', income: bw.income || 0, u: bw.u || 0,
+    categories: mergeById(ab.categories, bb.categories),
+    logs: mergeById(ab.logs, bb.logs)
+  };
   return out;
 }
 
