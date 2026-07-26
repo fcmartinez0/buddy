@@ -2,11 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Buddy">
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <title>Buddy — Personal Tracker</title>
 <style>
   :root {
@@ -64,18 +69,25 @@
   }
 
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
     background: var(--page);
     color: var(--ink);
     font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-tap-highlight-color: transparent;
   }
-  .wrap { max-width: 780px; margin: 0 auto; padding: 20px 16px 80px; }
+  button { touch-action: manipulation; }
+  .wrap {
+    max-width: 780px; margin: 0 auto;
+    padding: calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+             calc(80px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+  }
 
-  .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+  .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
   .top h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; }
   .mission { color: var(--ink-2); margin: 2px 0 0; font-size: 14px; max-width: 46ch; }
-  .top-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .top-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .pill {
     font-size: 13px; color: var(--ink-2); background: var(--surface);
     border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; white-space: nowrap;
@@ -107,31 +119,32 @@
   button.btn {
     appearance: none; font: inherit; font-weight: 500; cursor: pointer;
     background: var(--ink); color: var(--page); border: 1px solid var(--ink);
-    border-radius: 8px; padding: 6px 14px;
+    border-radius: 8px; padding: 8px 16px; min-height: 40px;
   }
   button.btn.ghost { background: none; color: var(--ink-2); border: 1px solid var(--border); }
   button.btn.ghost:hover { color: var(--ink); border-color: var(--baseline); }
   button.btn.danger { background: none; color: var(--critical); border-color: var(--critical); }
   button.icon {
     appearance: none; background: none; border: 1px solid var(--border); border-radius: 8px;
-    color: var(--ink-2); font: inherit; cursor: pointer; padding: 4px 9px;
+    color: var(--ink-2); font: inherit; cursor: pointer; padding: 6px 11px;
   }
   button.icon:hover { color: var(--ink); }
   button.linkish { appearance: none; background: none; border: none; padding: 0; font: inherit; font-size: 13px; color: var(--ink-2); cursor: pointer; text-decoration: underline; }
 
-  input[type=text], input[type=date], textarea, select, input[type=number] {
-    font: inherit; color: var(--ink); background: var(--page);
-    border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; width: 100%;
+  input[type=text], input[type=date], input[type=password], textarea, select, input[type=number] {
+    font: inherit; font-size: 16px; /* below 16px iOS Safari zooms the page on focus */
+    color: var(--ink); background: var(--page);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; width: 100%;
   }
   textarea { resize: vertical; min-height: 72px; }
   label.f { display: block; font-size: 13px; color: var(--ink-2); margin: 10px 0 4px; }
-  .row { display: flex; gap: 10px; align-items: center; }
-  .row > * { flex: 1; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 0; }
   .row .tight { flex: 0 0 auto; }
 
   .bar { height: 8px; background: var(--grid); border-radius: 4px; overflow: hidden; flex: 1; }
   .bar i { display: block; height: 100%; border-radius: 4px; min-width: 4px; }
-  .bar-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
   .bar-row .name { flex: 0 0 38%; display: flex; align-items: center; gap: 8px; font-size: 14px; min-width: 0; }
   .bar-row .name span.t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bar-row .pct { flex: 0 0 44px; text-align: right; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
@@ -183,18 +196,20 @@
   .checkin-log li { padding: 3px 0; border-top: 1px solid var(--grid); }
   .checkin-log .d { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 8px; }
 
-  .mood-pick { display: flex; gap: 6px; }
+  .mood-pick { display: flex; gap: 6px; flex-wrap: wrap; }
   .mood-pick button {
-    appearance: none; font-size: 20px; background: none; border: 1px solid var(--border);
-    border-radius: 8px; padding: 4px 10px; cursor: pointer; filter: grayscale(1); opacity: 0.6;
+    appearance: none; font: inherit; font-size: 13px; color: var(--ink-2); background: none;
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px 11px; cursor: pointer;
   }
-  .mood-pick button[aria-pressed="true"] { filter: none; opacity: 1; border-color: var(--baseline); background: var(--page); }
+  .mood-pick button[aria-pressed="true"] {
+    color: var(--ink); font-weight: 600; border-color: var(--baseline); background: var(--page);
+  }
 
   .entry { border-top: 1px solid var(--grid); padding: 12px 0; }
   .entry:first-of-type { border-top: none; }
   .entry .eh { display: flex; align-items: baseline; gap: 8px; }
   .entry .eh .d { font-weight: 600; }
-  .entry .eh .mood { font-size: 17px; }
+  .mood { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
   .entry .eh .spacer { flex: 1; }
   .entry .wins { color: var(--good-text); font-size: 14px; margin: 4px 0 0; }
   .entry .txt { margin: 4px 0 0; white-space: pre-wrap; }
@@ -243,12 +258,13 @@
 
   .over { color: var(--critical); font-size: 12px; white-space: nowrap; }
   .loglist { list-style: none; margin: 10px 0 0; padding: 0; font-size: 14px; }
-  .loglist li { display: flex; gap: 10px; align-items: baseline; border-top: 1px solid var(--grid); padding: 5px 0; }
+  .loglist li { display: flex; gap: 10px; align-items: baseline; border-top: 1px solid var(--grid); padding: 5px 0; flex-wrap: wrap; }
   .loglist .d { color: var(--muted); font-size: 12px; flex: 0 0 44px; }
   .loglist .amt { margin-left: auto; font-variant-numeric: tabular-nums; }
   .scen-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 14px; }
   .scen-row .sn { flex: 0 0 30%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .scen-row input[type=range] { flex: 1; }
+  .scen-row input[type=range] { flex: 1; min-width: 60px; }
+  .scen-row { flex-wrap: wrap; }
   .scen-row .sv { flex: 0 0 120px; text-align: right; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
   .proj-wrap { overflow-x: auto; }
   svg.proj { width: 100%; min-width: 480px; height: auto; display: block; }
@@ -265,7 +281,7 @@
     <div class="top-right">
       <button class="pill" id="syncPill" hidden title="Sync now"></button>
       <span class="pill" id="countPill" hidden></span>
-      <button class="icon" id="settingsBtn" title="Settings" aria-label="Settings">&#9881;</button>
+      <button class="icon" id="settingsBtn">Settings</button>
     </div>
   </header>
   <nav id="tabs" hidden>
@@ -382,7 +398,7 @@ function endDate() { return S.startDate ? addMonths(S.startDate, S.months || 6) 
 function esc(t) {
   return String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
-const MOODS = ['\u{1F61E}', '\u{1F615}', '\u{1F610}', '\u{1F642}', '\u{1F604}'];
+const MOODS = ['Rough', 'Meh', 'OK', 'Good', 'Great'];
 const SLOTS = 8;
 function goalColor(g) { return 'var(--s' + ((g.colorSlot % SLOTS) + 1) + ')'; }
 function activeGoals() { return S.goals.filter(g => g.status === 'active'); }
@@ -588,9 +604,9 @@ function renderToday() {
   const pct = Math.min(Math.max(Math.round(100 * diffDays(S.startDate, t) / diffDays(S.startDate, end)), 0), 100);
 
   let nudges = '';
-  if (!todayEntry) nudges += `<div class="nudge">✍️ <span><b>No journal entry yet today.</b> Two sentences count.</span></div>`;
+  if (!todayEntry) nudges += `<div class="nudge"><span><b>No journal entry yet today.</b> Two sentences count.</span></div>`;
   for (const g of due) {
-    nudges += `<div class="nudge">⏰ <span><b>${esc(g.title)}</b> hasn’t had a check-in in over a week.</span>
+    nudges += `<div class="nudge"><span><b>${esc(g.title)}</b> hasn’t had a check-in in over a week.</span>
       <button class="linkish tight" data-act="goto-goals" style="margin-left:auto">check in</button></div>`;
   }
 
@@ -623,7 +639,7 @@ function renderToday() {
       <input type="checkbox" data-act="habit-toggle" data-id="${h.id}" ${h.days[t] ? 'checked' : ''} aria-label="done today">
       <span class="hn">${esc(h.name)}</span>
       <span class="hweek" aria-label="last 7 days">${strip}</span>
-      <span class="hstreak">${sk ? sk + '\u{1F525}' : '—'}</span>
+      <span class="hstreak">${sk ? sk + 'd' : '—'}</span>
       <button class="icon tight" data-act="habit-del" data-id="${h.id}" aria-label="delete habit">&times;</button>
     </div>`;
   }).join('');
@@ -1035,7 +1051,7 @@ function renderJournal() {
         ${e.review ? '<span class="badge">weekly review</span>' : ''}
         <span class="spacer"></span>
         <button class="linkish" data-act="j-edit" data-id="${e.id}">edit</button></div>
-      ${e.wins ? `<p class="wins">★ ${esc(e.wins)}</p>` : ''}
+      ${e.wins ? `<p class="wins">Wins: ${esc(e.wins)}</p>` : ''}
       <p class="txt">${esc(e.text)}</p>
       ${tags ? `<div class="tags">${tags}</div>` : ''}
     </div>`;
@@ -1246,7 +1262,7 @@ function renderBudget() {
         <span class="name"><span class="t">${esc(c.name)}</span></span>
         <span class="bar"><i style="width:${p}%;background:${over ? 'var(--critical)' : 'var(--seq)'}"></i></span>
         <span class="pct" style="flex-basis:120px">${fmtMoney(s)} / ${fmtMoney(c.planned)}</span>
-        ${over ? `<span class="over">⚠ over by ${fmtMoney(over)}</span>` : ''}
+        ${over ? `<span class="over">over by ${fmtMoney(over)}</span>` : ''}
       </div>`;
     }).join('');
 
@@ -1534,7 +1550,7 @@ function paintSync() {
   const pill = $('#syncPill');
   pill.hidden = !SY.token;
   if (SY.token) {
-    pill.textContent = syncState.busy ? '⟳ syncing…' : syncState.error ? '⚠ sync error' : '✓ synced';
+    pill.textContent = syncState.busy ? 'Syncing…' : syncState.error ? 'Sync error' : 'Synced';
     pill.classList.toggle('err', !!syncState.error && !syncState.busy);
   }
   const st = $('#syStatus');
@@ -1566,6 +1582,11 @@ document.addEventListener('visibilitychange', () => {
 render();
 paintSync();
 if (SY.token) syncNow();
+
+// offline support for the hosted (https) version; no-op when opened as a local file
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>

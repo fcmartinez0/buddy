@@ -60,8 +60,11 @@ works in Safari on iOS and any browser on the Mac. One-time setup:
    paste the token, hit *Connect & sync*. Buddy creates a private gist
    (`buddy-tracker.json`) and pushes your data to it.
 4. **On the iPhone**: open the same URL in Safari, tap Share →
-   **Add to Home Screen** (it installs like an app), open it, and paste the
-   same token in settings. It finds the gist and pulls everything down.
+   **Add to Home Screen** (it installs as a full-screen standalone app with
+   its own icon), open it, and paste the same token in settings. It finds the
+   gist and pulls everything down. After the first online visit a service
+   worker keeps the app working offline; changes sync next time you're
+   connected.
 
 From then on both devices sync automatically — a couple of seconds after any
 change, whenever the app comes back to the foreground, and on demand via the
