@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Buddy">
 <title>Buddy — 6-Month Tracker</title>
 <style>
   :root {
@@ -76,6 +80,8 @@
     font-size: 13px; color: var(--ink-2); background: var(--surface);
     border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; white-space: nowrap;
   }
+  button.pill { font: inherit; font-size: 13px; cursor: pointer; }
+  button.pill.err { color: var(--critical); border-color: var(--critical); }
 
   nav { display: flex; gap: 4px; margin: 16px 0; border-bottom: 1px solid var(--grid); }
   nav button {
@@ -222,6 +228,7 @@
       <p class="mission" id="missionLine"></p>
     </div>
     <div class="top-right">
+      <button class="pill" id="syncPill" hidden title="Sync now"></button>
       <span class="pill" id="countPill" hidden></span>
       <button class="icon" id="settingsBtn" title="Settings" aria-label="Settings">&#9881;</button>
     </div>
@@ -251,6 +258,24 @@
     <input type="file" id="importFile" accept="application/json" hidden>
   </div>
   <p class="hint">Everything lives in this browser's local storage. Export a JSON backup now and then.</p>
+  <hr style="border:none;border-top:1px solid var(--grid);margin:16px 0">
+  <h2 style="font-size:15px;margin:0 0 4px">Sync across devices</h2>
+  <p class="hint" style="margin-top:0">Syncs through a private GitHub gist. Create a
+    <b>classic</b> token with <b>only the “gist” scope</b>
+    (github.com &rsaquo; Settings &rsaquo; Developer settings &rsaquo; Tokens), paste it on each
+    device, and Buddy keeps them merged automatically.</p>
+  <div id="syOffUi">
+    <label class="f" for="syToken">GitHub token</label>
+    <input type="password" id="syToken" autocomplete="off" placeholder="ghp_…">
+    <button class="btn" id="syConnect" style="margin-top:10px">Connect &amp; sync</button>
+  </div>
+  <div id="syOnUi" hidden>
+    <div class="row">
+      <button class="btn ghost" id="syNow">Sync now</button>
+      <button class="btn ghost" id="syDisconnect">Disconnect</button>
+    </div>
+  </div>
+  <p class="hint" id="syStatus"></p>
   <details class="adv" style="margin-top:10px">
     <summary>Danger zone</summary>
     <button class="btn danger" id="resetBtn" style="margin-top:8px">Erase everything</button>
@@ -264,7 +289,9 @@
 
 /* ---------- storage ---------- */
 const KEY = 'buddy-tracker-v1';
-const DEFAULT = { v: 1, startDate: null, mission: '', goals: [], journal: [], focus: {} };
+// Every goal/journal/focus entity carries `u` (last-modified ms) and deletes
+// are recorded in `trash` so two devices can merge without resurrecting data.
+const DEFAULT = { v: 1, startDate: null, mission: '', metaU: 0, goals: [], journal: [], focus: {}, trash: {} };
 let S = load();
 function load() {
   try {
@@ -273,7 +300,7 @@ function load() {
   } catch (e) { /* corrupted → start fresh */ }
   return structuredClone(DEFAULT);
 }
-function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
+function save() { localStorage.setItem(KEY, JSON.stringify(S)); queueSync(); }
 function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
 
 /* ---------- dates (all local, YYYY-MM-DD) ---------- */
@@ -387,6 +414,7 @@ function renderSetup() {
     if (!v) return;
     S.startDate = v;
     S.mission = $('#fMission').value.trim();
+    S.metaU = Date.now();
     save(); render();
   });
 }
@@ -503,18 +531,19 @@ function renderToday() {
       const txt = $('#focusText').value.trim();
       if (!txt) return;
       const sel = $('#focusGoal');
-      (S.focus[t] = S.focus[t] || []).push({ id: uid(), text: txt, goalId: sel && sel.value || null, done: false });
+      (S.focus[t] = S.focus[t] || []).push({ id: uid(), text: txt, goalId: sel && sel.value || null, done: false, u: Date.now() });
       save(); render();
     } else if (act === 'focus-toggle') {
       const f = (S.focus[t] || []).find(x => x.id === el.dataset.id);
-      if (f) { f.done = el.checked; save(); render(); }
+      if (f) { f.done = el.checked; f.u = Date.now(); save(); render(); }
     } else if (act === 'focus-del') {
+      S.trash[el.dataset.id] = Date.now();
       S.focus[t] = (S.focus[t] || []).filter(x => x.id !== el.dataset.id);
       save(); render();
     } else if (act === 'quick-save') {
       const txt = $('#qText').value.trim();
       if (!txt) return;
-      S.journal.push({ id: uid(), date: t, mood: qMood, text: txt, wins: '', goalIds: [] });
+      S.journal.push({ id: uid(), date: t, mood: qMood, text: txt, wins: '', goalIds: [], u: Date.now() });
       save(); render();
     }
   };
@@ -659,13 +688,13 @@ function renderGoals() {
       S.goals.push({
         id: uid(), title, why: $('#gWhy').value.trim(), targetDate: $('#gTarget').value || null,
         milestones: ms, checkins: [], status: 'active',
-        colorSlot: S.goals.length, createdAt: todayStr()
+        colorSlot: S.goals.length, createdAt: todayStr(), u: Date.now()
       });
       goalFormOpen = false; save(); render();
     }
     else if (act === 'ms-toggle') {
       const m = g.milestones.find(x => x.id === el.dataset.id);
-      m.done = el.checked; save(); render();
+      m.done = el.checked; g.u = Date.now(); save(); render();
     }
     else if (act === 'ci-open') { checkinOpen = g.id; render(); }
     else if (act === 'ci-cancel') { checkinOpen = null; render(); }
@@ -673,13 +702,15 @@ function renderGoals() {
       const note = $('#ciNote').value.trim();
       const prog = $('#ciProg');
       g.checkins.push({ date: todayStr(), note, progress: prog ? Number(prog.value) : null });
+      g.u = Date.now();
       checkinOpen = null; save(); render();
     }
-    else if (act === 'goal-done') { g.status = 'done'; save(); render(); }
-    else if (act === 'goal-pause') { g.status = 'paused'; save(); render(); }
-    else if (act === 'goal-reopen') { g.status = 'active'; save(); render(); }
+    else if (act === 'goal-done') { g.status = 'done'; g.u = Date.now(); save(); render(); }
+    else if (act === 'goal-pause') { g.status = 'paused'; g.u = Date.now(); save(); render(); }
+    else if (act === 'goal-reopen') { g.status = 'active'; g.u = Date.now(); save(); render(); }
     else if (act === 'goal-del') {
       if (confirm('Delete "' + g.title + '" and its check-in history? This can’t be undone.')) {
+        S.trash[g.id] = Date.now();
         S.goals = S.goals.filter(x => x.id !== g.id); save(); render();
       }
     }
@@ -792,15 +823,16 @@ function renderJournal() {
         const date = $('#jDate').value || todayStr();
         const existing = entryFor(date);
         if (existing && !confirm('You already journaled on ' + fmt(date) + '. Add a second entry for that day?')) return;
-        S.journal.push({ id: uid(), date, mood: formMood, text, wins, goalIds: formGoalIds });
+        S.journal.push({ id: uid(), date, mood: formMood, text, wins, goalIds: formGoalIds, u: Date.now() });
       } else {
         const entry = S.journal.find(x => x.id === editingEntry);
-        Object.assign(entry, { mood: formMood, text, wins, goalIds: formGoalIds });
+        Object.assign(entry, { mood: formMood, text, wins, goalIds: formGoalIds, u: Date.now() });
       }
       editingEntry = null; save(); render();
     }
     else if (act === 'j-del') {
       if (confirm('Delete this entry?')) {
+        S.trash[editingEntry] = Date.now();
         S.journal = S.journal.filter(x => x.id !== editingEntry);
         editingEntry = null; save(); render();
       }
@@ -819,6 +851,7 @@ $('#setClose').addEventListener('click', () => dlg.close());
 $('#setSave').addEventListener('click', () => {
   S.mission = $('#setMission').value.trim();
   if ($('#setStart').value) S.startDate = $('#setStart').value;
+  S.metaU = Date.now();
   save(); dlg.close(); render();
 });
 $('#exportBtn').addEventListener('click', () => {
@@ -848,14 +881,148 @@ $('#importFile').addEventListener('change', async e => {
   e.target.value = '';
 });
 $('#resetBtn').addEventListener('click', () => {
-  if (confirm('Erase ALL goals, journal entries, and settings? Consider exporting a backup first.') &&
+  if (confirm('Erase ALL goals, journal entries, and settings? Sync will be disconnected too (the gist itself is left alone). Consider exporting a backup first.') &&
       confirm('Really erase everything?')) {
+    SY = {}; saveSync();
     S = structuredClone(DEFAULT);
-    save(); dlg.close(); render();
+    save(); dlg.close(); render(); paintSync();
   }
 });
 
+/* ---------- sync (private GitHub gist) ---------- */
+const SYNC_KEY = 'buddy-sync-v1';
+const GIST_FILE = 'buddy-tracker.json';
+let SY = (() => { try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || {}; } catch (e) { return {}; } })();
+function saveSync() { localStorage.setItem(SYNC_KEY, JSON.stringify(SY)); }
+const syncState = { busy: false, error: null };
+let syncTimer = null;
+function queueSync() {
+  if (!SY.token) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncNow, 2500);
+}
+
+// Union by id; where both sides have an entity the newer `u` wins whole;
+// anything in either trash stays gone. Mission/start date follow metaU.
+function mergeStates(a, b) {
+  const out = structuredClone(DEFAULT);
+  const meta = (b.metaU || 0) > (a.metaU || 0) ? b : a;
+  out.startDate = meta.startDate; out.mission = meta.mission; out.metaU = meta.metaU || 0;
+  out.trash = Object.assign({}, a.trash, b.trash);
+  const mergeById = (x = [], y = []) => {
+    const m = new Map();
+    for (const it of x) m.set(it.id, it);
+    for (const it of y) {
+      const cur = m.get(it.id);
+      if (!cur || (it.u || 0) > (cur.u || 0)) m.set(it.id, it);
+    }
+    return [...m.values()].filter(it => !out.trash[it.id]);
+  };
+  out.goals = mergeById(a.goals, b.goals);
+  out.journal = mergeById(a.journal, b.journal);
+  for (const d of new Set([...Object.keys(a.focus || {}), ...Object.keys(b.focus || {})])) {
+    const merged = mergeById((a.focus || {})[d], (b.focus || {})[d]);
+    if (merged.length) out.focus[d] = merged;
+  }
+  return out;
+}
+
+async function gh(path, opts = {}) {
+  const res = await fetch('https://api.github.com' + path, Object.assign({}, opts, {
+    headers: Object.assign({
+      'Authorization': 'Bearer ' + SY.token,
+      'Accept': 'application/vnd.github+json'
+    }, opts.body ? { 'Content-Type': 'application/json' } : {})
+  }));
+  if (!res.ok) {
+    throw new Error(res.status === 401 ? 'token rejected (401)' : 'GitHub error ' + res.status);
+  }
+  return res.json();
+}
+
+async function findOrCreateGist() {
+  const list = await gh('/gists?per_page=100');
+  const hit = list.find(g => g.files && g.files[GIST_FILE]);
+  if (hit) return hit.id;
+  const made = await gh('/gists', { method: 'POST', body: JSON.stringify({
+    description: 'Buddy 6-month tracker data (auto-synced)', public: false,
+    files: { [GIST_FILE]: { content: JSON.stringify(S) } }
+  }) });
+  return made.id;
+}
+
+async function syncNow() {
+  if (!SY.token || syncState.busy) return;
+  clearTimeout(syncTimer);
+  syncState.busy = true; syncState.error = null; paintSync();
+  try {
+    if (!SY.gistId) { SY.gistId = await findOrCreateGist(); saveSync(); }
+    const gist = await gh('/gists/' + SY.gistId);
+    const f = gist.files[GIST_FILE];
+    let remoteTxt = null;
+    if (f) remoteTxt = f.truncated ? await (await fetch(f.raw_url)).text() : f.content;
+    const before = JSON.stringify(S);
+    let remote = null;
+    try { remote = JSON.parse(remoteTxt); } catch (e) { /* empty or corrupt remote → overwrite */ }
+    if (remote && typeof remote === 'object' && 'journal' in remote) {
+      S = mergeStates(S, Object.assign(structuredClone(DEFAULT), remote));
+    }
+    const mine = JSON.stringify(S);
+    if (mine !== remoteTxt) {
+      await gh('/gists/' + SY.gistId, { method: 'PATCH', body: JSON.stringify({
+        files: { [GIST_FILE]: { content: mine } }
+      }) });
+    }
+    if (mine !== before) {
+      localStorage.setItem(KEY, mine);
+      render(); // remote had newer data — refresh the view
+    }
+    SY.last = Date.now(); saveSync();
+  } catch (e) {
+    syncState.error = e.message;
+    if (/404/.test(e.message)) { SY.gistId = null; saveSync(); } // gist deleted → recreate next sync
+  }
+  syncState.busy = false;
+  clearTimeout(syncTimer);
+  paintSync();
+}
+
+function paintSync() {
+  const pill = $('#syncPill');
+  pill.hidden = !SY.token;
+  if (SY.token) {
+    pill.textContent = syncState.busy ? '⟳ syncing…' : syncState.error ? '⚠ sync error' : '✓ synced';
+    pill.classList.toggle('err', !!syncState.error && !syncState.busy);
+  }
+  const st = $('#syStatus');
+  $('#syOffUi').hidden = !!SY.token;
+  $('#syOnUi').hidden = !SY.token;
+  if (!SY.token) st.textContent = '';
+  else if (syncState.busy) st.textContent = 'Syncing…';
+  else if (syncState.error) st.textContent = 'Sync failed: ' + syncState.error;
+  else if (SY.last) st.textContent = 'Last synced ' + new Date(SY.last).toLocaleString() + '.';
+  else st.textContent = 'Connected, not synced yet.';
+}
+
+$('#syncPill').addEventListener('click', syncNow);
+$('#syConnect').addEventListener('click', () => {
+  const t = $('#syToken').value.trim();
+  if (!t) return;
+  SY = { token: t }; saveSync();
+  $('#syToken').value = '';
+  paintSync(); syncNow();
+});
+$('#syNow').addEventListener('click', syncNow);
+$('#syDisconnect').addEventListener('click', () => {
+  SY = {}; saveSync(); paintSync();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && SY.token) syncNow();
+});
+
 render();
+paintSync();
+if (SY.token) syncNow();
 </script>
 </body>
 </html>
