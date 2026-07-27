@@ -1587,6 +1587,10 @@ if (SY.token) syncNow();
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
+// ask the browser to exempt this site's storage from automatic eviction
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
 </script>
 </body>
 </html>
