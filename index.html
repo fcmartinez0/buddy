@@ -432,7 +432,18 @@ function load() {
   } catch (e) { /* corrupted → start fresh */ }
   return structuredClone(DEFAULT);
 }
-function save() { localStorage.setItem(KEY, JSON.stringify(S)); queueSync(); }
+let saveWarned = false;
+function save() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(S));
+  } catch (e) {
+    if (!saveWarned) {
+      saveWarned = true;
+      alert('Could not save — this browser’s storage may be full. Export a backup from Settings, then free some space.');
+    }
+  }
+  queueSync();
+}
 function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
 
 /* ---------- dates (all local, YYYY-MM-DD) ---------- */
@@ -535,9 +546,12 @@ const TEMPLATES = [
     ms: ['Set up the Budget tab with real numbers', 'Auto-transfer to savings on payday', 'First month under budget', '3 months under budget', 'Hit my savings target'] },
 ];
 
-/* ---------- pomodoro (state survives re-renders; DOM is repainted) ---------- */
+/* ---------- pomodoro (state survives re-renders; DOM is repainted) ----------
+   The countdown is anchored to a wall-clock deadline (endsAt), not decremented
+   per tick — iOS suspends timers in background, and this way the display
+   self-corrects the moment the app returns to the foreground. */
 const POMO_FOCUS = 25 * 60, POMO_BREAK = 5 * 60;
-const pomo = { mode: 'focus', left: POMO_FOCUS, running: false, timer: null };
+const pomo = { mode: 'focus', left: POMO_FOCUS, running: false, timer: null, endsAt: 0 };
 function pomoPaint() {
   const el = document.getElementById('pomoTime');
   if (!el) return;
@@ -556,23 +570,32 @@ function pomoBeep() {
     o.start(); o.stop(ctx.currentTime + 0.35);
   } catch (e) { /* audio unavailable — silent is fine */ }
 }
-function pomoToggle() {
-  pomo.running = !pomo.running;
-  clearInterval(pomo.timer);
-  if (pomo.running) pomo.timer = setInterval(() => {
-    pomo.left--;
-    if (pomo.left <= 0) {
-      if (pomo.mode === 'focus') {
-        S.pomo[todayStr()] = (S.pomo[todayStr()] || 0) + 1;
-        save();
-        pomo.mode = 'break'; pomo.left = POMO_BREAK;
-      } else {
-        pomo.mode = 'focus'; pomo.left = POMO_FOCUS;
-      }
-      pomoBeep();
+function pomoTick() {
+  if (!pomo.running) return;
+  pomo.left = Math.max(0, Math.round((pomo.endsAt - Date.now()) / 1000));
+  if (pomo.left <= 0) {
+    if (pomo.mode === 'focus') {
+      S.pomo[todayStr()] = (S.pomo[todayStr()] || 0) + 1;
+      save();
+      pomo.mode = 'break'; pomo.left = POMO_BREAK;
+    } else {
+      pomo.mode = 'focus'; pomo.left = POMO_FOCUS;
     }
-    pomoPaint();
-  }, 1000);
+    pomo.endsAt = Date.now() + pomo.left * 1000;
+    pomoBeep();
+  }
+  pomoPaint();
+}
+function pomoToggle() {
+  if (pomo.running) {
+    pomo.left = Math.max(0, Math.round((pomo.endsAt - Date.now()) / 1000));
+    pomo.running = false;
+    clearInterval(pomo.timer);
+  } else {
+    pomo.endsAt = Date.now() + pomo.left * 1000;
+    pomo.running = true;
+    pomo.timer = setInterval(pomoTick, 500);
+  }
   pomoPaint();
 }
 function pomoReset() {
@@ -591,8 +614,10 @@ let onViewClick = null;
 let onViewInput = null;
 let reviewOpen = false;
 
+let renderedDay = todayStr();
 function render() {
   onViewClick = null; onViewInput = null;
+  renderedDay = todayStr();
   const hasSetup = !!S.startDate;
   $('#tabs').hidden = !hasSetup;
   $('#countPill').hidden = !hasSetup;
@@ -671,6 +696,18 @@ function renderToday() {
   const pct = Math.min(Math.max(Math.round(100 * diffDays(S.startDate, t) / diffDays(S.startDate, end)), 0), 100);
 
   let nudges = '';
+  if (t > end) {
+    const doneCount = S.goals.filter(g => g.status === 'done').length;
+    const bestHabit = S.habits.length ? Math.max(...S.habits.map(h => Object.keys(h.days).length)) : 0;
+    nudges += `<div class="card">
+      <h2>Window complete</h2>
+      <p style="margin:0 0 4px"><b>${fmtY(S.startDate)} – ${fmtY(end)}.</b>
+        ${S.journal.length} journal entr${S.journal.length === 1 ? 'y' : 'ies'},
+        ${doneCount} of ${S.goals.length} goal${S.goals.length === 1 ? '' : 's'} completed${bestHabit ? ', best habit logged ' + bestHabit + ' days' : ''}.</p>
+      <p class="hint" style="margin-top:4px">Skim your journal, then start the next window from Settings — pick a new start date and length. Your history stays.</p>
+      <button class="btn" data-act="open-settings" style="margin-top:8px">Start a new window</button>
+    </div>`;
+  }
   if (!todayEntry) nudges += `<div class="nudge"><span><b>No journal entry yet today.</b> Two sentences count.</span></div>`;
   for (const g of due) {
     nudges += `<div class="nudge"><span><b>${esc(g.title)}</b> hasn’t had a check-in in over a week.</span>
@@ -831,6 +868,7 @@ function renderToday() {
     const act = el.dataset.act;
     if (act === 'goto-goals') { view = 'goals'; render(); }
     else if (act === 'goto-journal') { view = 'journal'; render(); }
+    else if (act === 'open-settings') { $('#settingsBtn').click(); }
     else if (act === 'focus-add') {
       const txt = $('#focusText').value.trim();
       if (!txt) return;
@@ -1643,8 +1681,15 @@ $('#syDisconnect').addEventListener('click', () => {
   SY = {}; saveSync(); paintSync();
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && SY.token) syncNow();
+  if (document.visibilityState !== 'visible') return;
+  // day changed while backgrounded (common for a home-screen app) → fresh Today
+  if (S.startDate && todayStr() !== renderedDay) render();
+  if (SY.token) syncNow();
 });
+// app left open across midnight: roll the views over to the new day
+setInterval(() => {
+  if (S.startDate && todayStr() !== renderedDay) render();
+}, 60000);
 
 render();
 paintSync();
