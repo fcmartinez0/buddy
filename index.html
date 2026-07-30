@@ -157,8 +157,8 @@
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 16px; padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow);
   }
-  .card h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 12px; }
-  .card h2 .sub { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .card h2 { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; color: var(--ink); margin: 0 0 14px; }
+  .card h2 .sub { font-weight: 400; font-size: 13px; color: var(--muted); }
 
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 14px; }
   .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow); }
@@ -318,6 +318,27 @@
   .scen-row input[type=range] { flex: 1; min-width: 60px; }
   .scen-row { flex-wrap: wrap; }
   .scen-row .sv { flex: 0 0 120px; text-align: right; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .sec + .sec { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--grid); }
+  .sec h3 {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted); margin: 0 0 10px;
+  }
+  .sec h3 .sub { text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+  .minirow { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+  .minirow .mn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  input.amtin { text-align: right; padding: 5px 8px; font-size: 15px; }
+  .subtotal {
+    display: flex; justify-content: space-between; gap: 10px;
+    font-size: 13px; color: var(--ink-2); border-top: 1px solid var(--grid);
+    margin-top: 8px; padding-top: 8px;
+  }
+  .subtotal b { font-variant-numeric: tabular-nums; }
+  .netline {
+    display: flex; justify-content: space-between; gap: 10px; align-items: baseline;
+    margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--baseline); font-size: 15px;
+  }
+  .netline .nv { font-size: 19px; font-weight: 650; font-variant-numeric: tabular-nums; }
   .proj-wrap { overflow-x: auto; }
   svg.proj { width: 100%; min-width: 480px; height: auto; display: block; }
   svg.proj text { font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--muted); }
@@ -419,18 +440,41 @@ const KEY = 'buddy-tracker-v1';
 // Every goal/journal/focus/habit/budget entity carries `u` (last-modified ms)
 // and deletes are recorded in `trash` so devices can merge without resurrecting data.
 const DEFAULT = {
-  v: 2, startDate: null, months: 6, mission: '', metaU: 0,
+  v: 3, startDate: null, months: 6, mission: '', metaU: 0,
   goals: [], journal: [], focus: {}, habits: [], pomo: {},
-  budget: { currency: '$', income: 0, u: 0, categories: [], logs: [] },
+  budget: {
+    currency: '$', income: 0, cash: 0, cashDate: null, u: 0,
+    categories: [], oneoffs: [], logs: []
+  },
   trash: {}
 };
+let upgradedOnLoad = false;
 let S = load();
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return Object.assign(structuredClone(DEFAULT), JSON.parse(raw));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if ((parsed.v || 1) < DEFAULT.v) upgradedOnLoad = true;
+      return migrate(Object.assign(structuredClone(DEFAULT), parsed));
+    }
   } catch (e) { /* corrupted → start fresh */ }
   return structuredClone(DEFAULT);
+}
+// Older saves are upgraded in place, never discarded. Nested objects need this
+// explicitly: a stored `budget` replaces the default wholesale, so fields added
+// after that save was written would otherwise arrive undefined.
+function migrate(s) {
+  s.budget = Object.assign(structuredClone(DEFAULT.budget), s.budget || {});
+  for (const k of ['categories', 'oneoffs', 'logs']) {
+    if (!Array.isArray(s.budget[k])) s.budget[k] = [];
+  }
+  // before v3 every category was one flat monthly plan — that is a fixed cost
+  for (const c of s.budget.categories) if (!c.kind) c.kind = 'fixed';
+  for (const k of ['goals', 'journal', 'habits']) if (!Array.isArray(s[k])) s[k] = [];
+  for (const k of ['focus', 'pomo', 'trash']) if (!s[k] || typeof s[k] !== 'object') s[k] = {};
+  s.v = DEFAULT.v;
+  return s;
 }
 let saveWarned = false;
 function save() {
@@ -511,7 +555,7 @@ function habitStreak(h) {
 
 /* ---------- research-backed technique library ---------- */
 const TIPS = [
-  { n: 'Implementation intentions', d: 'Phrase every plan as “If it’s [time/situation], then I will [action]”. Across 94 studies this roughly doubled follow-through versus plain intentions — the focus box below is built for it.' },
+  { n: 'Implementation intentions', d: 'Phrase every plan as “If it’s [time/situation], then I will [action]”. Across 94 studies this roughly doubled follow-through versus plain intentions — write your focus items that way.' },
   { n: 'Habit stacking', d: 'Attach a new habit to one you already do: “After I pour my morning coffee, I message one new contact.” The old routine becomes the trigger.' },
   { n: 'The two-minute rule', d: 'Shrink a dreaded habit to its two-minute version — “put on gym clothes”, not “work out”. Showing up is the habit; volume comes later.' },
   { n: 'Environment design', d: 'Make the good thing easy and the bad thing invisible: gym bag packed by the door, phone charging outside the bedroom, savings auto-transferred on payday.' },
@@ -753,9 +797,9 @@ function renderToday() {
 
   const lastReview = S.journal.filter(e => e.review).map(e => e.date).sort().pop();
   const reviewDue = !lastReview || diffDays(lastReview, t) >= 7;
-  const reviewCard = !reviewDue ? '' : `
-    <div class="card">
-      <h2>Weekly review <span class="sub">· ${lastReview ? 'last one ' + fmt(lastReview) : 'first one'}</span></h2>
+  const reviewSec = !reviewDue ? '' : `
+    <div class="sec">
+      <h3>Weekly review <span class="sub">· ${lastReview ? 'last one ' + fmt(lastReview) : 'first one'}</span></h3>
       ${reviewOpen ? `
         <label class="f" for="rWell">What worked this week?</label>
         <textarea id="rWell" style="min-height:56px"></textarea>
@@ -804,49 +848,58 @@ function renderToday() {
       <div class="tile"><div class="v">${due.length}</div><div class="l">check-ins due</div></div>
     </div>
     <div class="card">
-      <h2>Today’s focus <span class="sub">· max 3</span></h2>
-      ${focusRows || '<p class="empty">What would make today a win? Pick up to three things.</p>'}
-      ${addFocus}
-    </div>
-    <div class="card">
-      <h2>Daily habits</h2>
-      ${habitRows || '<p class="empty">Small daily reps — gym, phone-free evenings, outreach. Streaks do the motivating.</p>'}
-      <div class="row" style="margin-top:10px">
-        <input type="text" id="habitText" placeholder="New daily habit…" maxlength="60">
-        <button class="btn tight" data-act="habit-add">Add</button>
+      <h2>Today <span class="sub">· ${fmtLong(t)}</span></h2>
+      <div class="sec">
+        <h3>Focus <span class="sub">· max 3</span></h3>
+        ${focusRows || '<p class="empty">What would make today a win? Pick up to three things.</p>'}
+        ${addFocus}
       </div>
-      ${habitChips ? `<div class="chips">${habitChips}</div>` : ''}
-    </div>
-    <div class="card">
-      <h2>Focus timer <span class="sub">· 25 on, 5 off</span></h2>
-      <div class="pomo">
-        <span class="time" id="pomoTime"></span>
-        <span class="mode" id="pomoMode"></span>
-        <button class="btn tight" data-act="pomo-start" id="pomoBtn">Start</button>
-        <button class="btn ghost tight" data-act="pomo-reset">Reset</button>
-        <span class="hint" id="pomoCount" style="margin:0"></span>
+      <div class="sec">
+        <h3>Habits</h3>
+        ${habitRows || '<p class="empty">Small daily reps — gym, phone-free evenings, outreach. Streaks do the motivating.</p>'}
+        <div class="row" style="margin-top:10px">
+          <input type="text" id="habitText" placeholder="New daily habit…" maxlength="60">
+          <button class="btn tight" data-act="habit-add">Add</button>
+        </div>
+        ${habitChips ? `<div class="chips">${habitChips}</div>` : ''}
+      </div>
+      <div class="sec">
+        <h3>Focus timer <span class="sub">· 25 on, 5 off</span></h3>
+        <div class="pomo">
+          <span class="time" id="pomoTime"></span>
+          <span class="mode" id="pomoMode"></span>
+          <button class="btn tight" data-act="pomo-start" id="pomoBtn">Start</button>
+          <button class="btn ghost tight" data-act="pomo-reset">Reset</button>
+          <span class="hint" id="pomoCount" style="margin:0"></span>
+        </div>
       </div>
     </div>
     <div class="card">
-      <h2>Quick journal <span class="sub">· ${fmtLong(t)}</span></h2>
-      ${quick}
-    </div>
-    ${reviewCard}
-    <div class="card tipcard">
-      <h2>Technique of the day</h2>
-      <p><span class="tn">${tip.n}.</span> ${tip.d}</p>
-    </div>
-    <div class="card">
-      <h2>Goal progress</h2>
-      ${bars}
+      <h2>Reflect</h2>
+      <div class="sec">
+        <h3>Journal</h3>
+        ${quick}
+      </div>
+      ${reviewSec}
     </div>
     <div class="card">
-      <h2>Journal consistency</h2>
-      ${heatmapHTML()}
-      <div class="legend">
-        <span class="k"><span class="sw" style="background:var(--seq)"></span>journaled</span>
-        <span class="k"><span class="sw" style="background:var(--grid)"></span>missed</span>
-        <span class="k"><span class="sw" style="border:1px dashed var(--grid)"></span>upcoming</span>
+      <h2>Progress</h2>
+      <div class="sec">
+        <h3>Goals</h3>
+        ${bars}
+      </div>
+      <div class="sec">
+        <h3>Journal consistency</h3>
+        ${heatmapHTML()}
+        <div class="legend">
+          <span class="k"><span class="sw" style="background:var(--seq)"></span>journaled</span>
+          <span class="k"><span class="sw" style="background:var(--grid)"></span>missed</span>
+          <span class="k"><span class="sw" style="border:1px dashed var(--grid)"></span>upcoming</span>
+        </div>
+      </div>
+      <div class="sec tipcard">
+        <h3>Technique of the day</h3>
+        <p><span class="tn">${tip.n}.</span> ${tip.d}</p>
       </div>
     </div>`;
 
@@ -1222,258 +1275,369 @@ function renderJournal() {
 }
 
 /* ---------- Budget ---------- */
-let budgetEditOpen = false;
-let scen = {}; // catId -> percent of planned spend; scenario sliders, deliberately not persisted
+// Scenario sliders apply to variable costs only — fixed costs are fixed by
+// definition, so sliding them would model something that can't happen.
+let scen = {}; // variable catId -> percent of planned; not persisted
 
 function fmtMoney(n) {
   const c = S.budget.currency || '$';
   return (n < 0 ? '−' : '') + c + Math.abs(Math.round(n)).toLocaleString();
 }
 function monthKeyOf(s) { return s.slice(0, 7); }
-function monthsInWindow() {
-  const out = [];
-  const d = toDate(S.startDate); d.setDate(1);
-  const end = toDate(endDate());
-  while (d <= end) {
-    out.push({
-      key: toStr(d).slice(0, 7),
-      label: MONTHS[d.getMonth()] + (d.getMonth() === 0 ? ' ' + String(d.getFullYear()).slice(2) : '')
-    });
-    d.setMonth(d.getMonth() + 1);
-  }
-  return out;
+function monthLabel(mk) {
+  const [y, m] = mk.split('-').map(Number);
+  return MONTHS[m - 1] + (m === 1 ? ' ' + String(y).slice(2) : '');
 }
+function cats(kind) { return S.budget.categories.filter(c => (c.kind || 'fixed') === kind); }
+function fixedTotal() { return cats('fixed').reduce((a, c) => a + c.planned, 0); }
+function variableTotal(useScen) {
+  return cats('variable').reduce((a, c) => a + c.planned * (useScen ? ((scen[c.id] ?? 100) / 100) : 1), 0);
+}
+function plannedTotal() { return fixedTotal() + variableTotal(false); }
+function monthlyNet(useScen) { return S.budget.income - fixedTotal() - variableTotal(useScen); }
+function scenActive() { return cats('variable').some(c => (scen[c.id] ?? 100) !== 100); }
 function spentIn(mk, catId) {
   return S.budget.logs.reduce((a, l) =>
     a + ((monthKeyOf(l.date) === mk && (!catId || l.catId === catId)) ? l.amount : 0), 0);
 }
-function plannedTotal() { return S.budget.categories.reduce((a, c) => a + c.planned, 0); }
-function scenTotal() { return S.budget.categories.reduce((a, c) => a + c.planned * ((scen[c.id] ?? 100) / 100), 0); }
-
-// Cumulative savings across the window: past months use actual spending for
-// both lines; the current month onward diverges plan (planned) vs what-if (scenario).
-function projection() {
-  const mks = monthsInWindow(), nowMk = monthKeyOf(todayStr());
-  const inc = S.budget.income;
-  const base = [], what = [];
-  let b = 0, w = 0;
-  for (const m of mks) {
-    if (m.key < nowMk) { const s = inc - spentIn(m.key); b += s; w += s; }
-    else { b += inc - plannedTotal(); w += inc - scenTotal(); }
-    base.push(b); what.push(w);
-  }
-  return { mks, base, what };
+// One-offs still ahead of you in a given month (past ones are already in cash).
+function oneoffsIn(mk) {
+  const t = todayStr();
+  return S.budget.oneoffs.reduce((a, o) => a + ((monthKeyOf(o.date) === mk && o.date >= t) ? o.amount : 0), 0);
 }
-function scenSummaryText() {
+
+// Forward projection of actual cash: starts at what you have today and walks
+// each remaining month forward. The current month is prorated by the days left
+// in it, since the cash figure already reflects what you've spent so far.
+function projection() {
+  const t = todayStr(), today = toDate(t);
+  const cash = Number(S.budget.cash) || 0;
+  const labels = ['Now'], base = [cash], what = [cash];
+  const end = toDate(endDate());
+  const d = new Date(today.getFullYear(), today.getMonth(), 1);
+  const dim = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  let b = cash, w = cash, first = true;
+  while (d <= end) {
+    const mk = toStr(d).slice(0, 7);
+    const frac = first ? (dim - today.getDate() + 1) / dim : 1;
+    const oo = oneoffsIn(mk);
+    b += monthlyNet(false) * frac - oo;
+    w += monthlyNet(true) * frac - oo;
+    labels.push(monthLabel(mk)); base.push(b); what.push(w);
+    d.setMonth(d.getMonth() + 1); first = false;
+  }
+  return { labels, base, what };
+}
+function projSummaryText() {
   const p = projection();
-  if (!p.mks.length) return '';
-  const bEnd = p.base[p.base.length - 1], wEnd = p.what[p.what.length - 1];
-  const d = wEnd - bEnd;
-  return 'By ' + fmtY(endDate()) + ': plan saves ' + fmtMoney(bEnd) + ' · what-if saves ' + fmtMoney(wEnd) +
-    (d ? ' (' + (d > 0 ? '+' : '') + fmtMoney(d).replace('−', '−') + ')' : '');
+  if (p.base.length < 2) return 'Your window has ended — set a new one in Settings to project again.';
+  const bEnd = p.base[p.base.length - 1];
+  let s = 'Cash today ' + fmtMoney(S.budget.cash || 0) + ' → ' + fmtMoney(bEnd) + ' by ' + fmtY(endDate()) + '.';
+  if (scenActive()) {
+    const wEnd = p.what[p.what.length - 1], d = wEnd - bEnd;
+    s += ' What-if: ' + fmtMoney(wEnd) + ' (' + (d >= 0 ? '+' : '−') + fmtMoney(Math.abs(d)) + ').';
+  }
+  return s;
 }
 function projChartHTML() {
-  const { mks, base, what } = projection();
-  if (mks.length < 2) return '';
-  const W = 620, H = 220, L = 58, R = 74, T = 14, B = 26;
-  const all = [...base, ...what, 0];
+  const { labels, base, what } = projection();
+  if (labels.length < 2) return '';
+  const showWhat = scenActive();
+  const W = 620, H = 220, L = 62, R = showWhat ? 74 : 30, T = 14, B = 26;
+  const all = showWhat ? [...base, ...what, 0] : [...base, 0];
   let lo = Math.min(...all), hi = Math.max(...all);
   if (hi === lo) hi = lo + 1;
-  const x = i => L + (W - L - R) * (i / (mks.length - 1));
+  const x = i => L + (W - L - R) * (i / (labels.length - 1));
   const y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
   const pts = arr => arr.map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
   const ticks = [lo, (lo + hi) / 2, hi].map(v =>
     `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)" stroke-width="1"/>
      <text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${fmtMoney(v)}</text>`).join('');
-  const zero = lo < 0 ? `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--baseline)" stroke-width="1"/>` : '';
-  const step = Math.max(1, Math.ceil(mks.length / 7));
-  const xlabels = mks.map((m, i) => i % step ? '' :
-    `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${m.label}</text>`).join('');
-  const last = mks.length - 1;
-  let yA = y(base[last]), yB = y(what[last]);
-  if (Math.abs(yA - yB) < 13) {
-    const mid = (yA + yB) / 2, s = yA >= yB ? 1 : -1;
-    yA = mid + 7 * s; yB = mid - 7 * s;
-  }
-  const col = (W - L - R) / (mks.length - 1);
-  const hover = mks.map((m, i) =>
+  const zero = lo < 0 ? `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--critical)" stroke-width="1"/>` : '';
+  const step = Math.max(1, Math.ceil(labels.length / 7));
+  const xlabels = labels.map((m, i) => i % step ? '' :
+    `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${m}</text>`).join('');
+  const last = labels.length - 1;
+  const col = (W - L - R) / (labels.length - 1);
+  const hover = labels.map((m, i) =>
     `<rect x="${(x(i) - col / 2).toFixed(1)}" y="0" width="${col.toFixed(1)}" height="${H}" fill="transparent"
-       data-tip="${m.label}: plan ${fmtMoney(base[i])} · what-if ${fmtMoney(what[i])}"/>`).join('');
-  return `<div class="proj-wrap"><svg class="proj" viewBox="0 0 ${W} ${H}" role="img" aria-label="cumulative savings, plan versus scenario">
+       data-tip="${m}: ${fmtMoney(base[i])}${showWhat ? ' · what-if ' + fmtMoney(what[i]) : ''}"/>`).join('');
+  let whatLayer = '';
+  if (showWhat) {
+    let yA = y(base[last]), yB = y(what[last]);
+    if (Math.abs(yA - yB) < 13) {
+      const mid = (yA + yB) / 2, s = yA >= yB ? 1 : -1;
+      yA = mid + 7 * s; yB = mid - 7 * s;
+    }
+    whatLayer = `
+      <polyline points="${pts(what)}" fill="none" stroke="var(--s2)" stroke-width="2" stroke-dasharray="6 4"/>
+      <circle cx="${x(last).toFixed(1)}" cy="${y(what[last]).toFixed(1)}" r="3.5" fill="var(--s2)"/>
+      <text x="${(x(last) + 8).toFixed(1)}" y="${(yA + 4).toFixed(1)}" fill="var(--ink-2)">Plan</text>
+      <text x="${(x(last) + 8).toFixed(1)}" y="${(yB + 4).toFixed(1)}" fill="var(--ink-2)">What-if</text>`;
+  }
+  return `<div class="proj-wrap"><svg class="proj" viewBox="0 0 ${W} ${H}" role="img" aria-label="projected cash balance over the window">
     ${ticks}${zero}
     <polyline points="${pts(base)}" fill="none" stroke="var(--s1)" stroke-width="2"/>
-    <polyline points="${pts(what)}" fill="none" stroke="var(--s2)" stroke-width="2" stroke-dasharray="6 4"/>
     <circle cx="${x(last).toFixed(1)}" cy="${y(base[last]).toFixed(1)}" r="3.5" fill="var(--s1)"/>
-    <circle cx="${x(last).toFixed(1)}" cy="${y(what[last]).toFixed(1)}" r="3.5" fill="var(--s2)"/>
-    <text x="${(x(last) + 8).toFixed(1)}" y="${(yA + 4).toFixed(1)}" fill="var(--ink-2)">Plan</text>
-    <text x="${(x(last) + 8).toFixed(1)}" y="${(yB + 4).toFixed(1)}" fill="var(--ink-2)">What-if</text>
-    ${xlabels}${hover}
+    ${whatLayer}${xlabels}${hover}
   </svg></div>`;
 }
-function commitPlanFields() {
-  const inc = $('#bIncome');
-  if (inc) {
-    S.budget.income = Number(inc.value) || 0;
-    S.budget.currency = ($('#bCur').value.trim() || '$').slice(0, 3);
-    S.budget.u = Date.now();
-  }
-}
+
+const FIXED_PRESETS = ['Rent', 'Utilities', 'Phone', 'Insurance', 'Subscriptions', 'Gym', 'Transit', 'Loan payment'];
+const VAR_PRESETS = ['Groceries', 'Eating out', 'Fun', 'Shopping', 'Coffee', 'Rideshare'];
 
 function renderBudget() {
   const bud = S.budget, t = todayStr(), mk = monthKeyOf(t);
-  const hasPlan = bud.income > 0 || bud.categories.length > 0;
-  if (!hasPlan) budgetEditOpen = true;
-  const PRESETS = ['Rent', 'Groceries', 'Transport', 'Eating out', 'Subscriptions', 'Fun', 'Gym'];
+  const fixed = cats('fixed'), variable = cats('variable');
+  const net = monthlyNet(false);
+  const varPlanned = variableTotal(false);
+  const varSpent = variable.reduce((a, c) => a + spentIn(mk, c.id), 0);
+  const proj = projection();
+  const projEnd = proj.base[proj.base.length - 1];
 
-  const editUi = budgetEditOpen ? `
+  const catRows = list => list.map(c => `<div class="minirow">
+      <span class="mn">${esc(c.name)}</span>
+      <span class="tight" style="flex:0 0 104px">
+        <input type="number" class="amtin" data-catamt="${c.id}" value="${c.planned}" min="0" step="1"
+          aria-label="${esc(c.name)} amount per month">
+      </span>
+      <button class="icon tight" data-act="cat-del" data-id="${c.id}" aria-label="remove ${esc(c.name)}">&times;</button>
+    </div>`).join('');
+
+  const addRow = kind => `
+    <div class="row" style="margin-top:8px">
+      <input type="text" id="catName-${kind}" placeholder="${kind === 'fixed' ? 'Fixed cost' : 'Variable cost'}" maxlength="30">
+      <input type="number" id="catAmt-${kind}" class="tight" style="max-width:118px" placeholder="Per month" min="0" step="1">
+      <button class="btn ghost tight" data-act="cat-add" data-kind="${kind}">Add</button>
+    </div>
+    <div class="chips">${(kind === 'fixed' ? FIXED_PRESETS : VAR_PRESETS)
+      .filter(p => !bud.categories.some(c => c.name === p))
+      .map(p => `<button class="chip" data-act="cat-preset" data-kind="${kind}" data-name="${p}">+ ${p}</button>`).join('')}</div>`;
+
+  const upcoming = [...bud.oneoffs].sort((a, b) => a.date.localeCompare(b.date));
+  const oneoffRows = upcoming.map(o => `<div class="minirow">
+      <span class="d" style="flex:0 0 62px;color:var(--muted);font-size:12px">${fmtY(o.date)}</span>
+      <span class="mn">${esc(o.name)}</span>
+      <span class="tight" style="font-variant-numeric:tabular-nums;color:${o.amount < 0 ? 'var(--good-text)' : 'var(--ink-2)'}">
+        ${o.amount < 0 ? '+' : '−'}${fmtMoney(Math.abs(o.amount))}</span>
+      <button class="icon tight" data-act="oneoff-del" data-id="${o.id}" aria-label="remove ${esc(o.name)}">&times;</button>
+    </div>`).join('');
+
+  const varBars = variable.map(c => {
+    const s = spentIn(mk, c.id);
+    const over = s > c.planned ? s - c.planned : 0;
+    const p = c.planned > 0 ? Math.min(100, 100 * s / c.planned) : (s > 0 ? 100 : 0);
+    return `<div class="bar-row">
+      <span class="name"><span class="t">${esc(c.name)}</span></span>
+      <span class="bar"><i style="width:${p}%;background:${over ? 'var(--critical)' : 'var(--seq)'}"></i></span>
+      <span class="pct" style="flex-basis:120px">${fmtMoney(s)} / ${fmtMoney(c.planned)}</span>
+      ${over ? `<span class="over">over by ${fmtMoney(over)}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  const catName = id => { const c = bud.categories.find(x => x.id === id); return c ? c.name : 'Uncategorized'; };
+  const logs = bud.logs.filter(l => monthKeyOf(l.date) === mk)
+    .sort((a, b) => b.date.localeCompare(a.date) || (b.u || 0) - (a.u || 0)).slice(0, 8);
+  const logList = logs.map(l => `<li>
+    <span class="d">${fmt(l.date)}</span><span>${esc(catName(l.catId))}</span>
+    ${l.note ? `<span class="hint" style="margin:0">${esc(l.note)}</span>` : ''}
+    <span class="amt">${fmtMoney(l.amount)}</span>
+    <button class="icon tight" data-act="log-del" data-id="${l.id}" aria-label="delete expense">&times;</button>
+  </li>`).join('');
+
+  const scenRows = variable.map(c => `<div class="scen-row">
+      <span class="sn">${esc(c.name)}</span>
+      <input type="range" min="0" max="150" value="${scen[c.id] ?? 100}" data-scen="${c.id}"
+        aria-label="what-if spending for ${esc(c.name)}">
+      <span class="sv" id="sv-${c.id}">${scen[c.id] ?? 100}% · ${fmtMoney(c.planned * ((scen[c.id] ?? 100) / 100))}/mo</span>
+    </div>`).join('');
+
+  $('#view').innerHTML = `
+    <div class="tiles">
+      <div class="tile"><div class="v">${fmtMoney(bud.cash || 0)}</div><div class="l">cash on hand</div></div>
+      <div class="tile"><div class="v" style="color:${net < 0 ? 'var(--critical)' : 'inherit'}">${fmtMoney(net)}</div><div class="l">left over each month</div></div>
+      <div class="tile"><div class="v">${fmtMoney(varPlanned - varSpent)}</div><div class="l">variable budget left this month</div></div>
+      <div class="tile"><div class="v">${fmtMoney(projEnd)}</div><div class="l">projected by ${fmtY(endDate())}</div></div>
+    </div>
+
     <div class="card">
-      <h2>Monthly plan</h2>
-      <div class="row">
-        <div><label class="f" for="bIncome">Monthly income (after tax)</label>
-          <input type="number" id="bIncome" min="0" step="1" value="${bud.income || ''}" placeholder="0"></div>
-        <div class="tight" style="max-width:90px"><label class="f" for="bCur">Currency</label>
-          <input type="text" id="bCur" maxlength="3" value="${esc(bud.currency || '$')}"></div>
+      <h2>Money in &amp; out <span class="sub">· edits save as you type</span></h2>
+      <div class="sec">
+        <h3>Starting point</h3>
+        <div class="row">
+          <div><label class="f" for="bCash">Cash on hand today</label>
+            <input type="number" id="bCash" data-plan="cash" min="0" step="1" value="${bud.cash || ''}" placeholder="0"></div>
+          <div><label class="f" for="bIncome">Monthly income (after tax)</label>
+            <input type="number" id="bIncome" data-plan="income" min="0" step="1" value="${bud.income || ''}" placeholder="0"></div>
+          <div class="tight" style="max-width:84px"><label class="f" for="bCur">Currency</label>
+            <input type="text" id="bCur" data-plan="currency" maxlength="3" value="${esc(bud.currency || '$')}"></div>
+        </div>
+        ${bud.cashDate ? `<p class="hint">Cash last updated ${fmtY(bud.cashDate)} — keep it roughly current so the projection stays honest.</p>` : ''}
       </div>
-      <label class="f">Spending categories — planned amount per month</label>
-      ${bud.categories.map(c => `<div class="row" style="margin-bottom:6px">
-        <span>${esc(c.name)}</span>
-        <span class="tight" style="color:var(--ink-2);font-variant-numeric:tabular-nums">${fmtMoney(c.planned)}</span>
-        <button class="icon tight" data-act="cat-del" data-id="${c.id}" aria-label="remove category">&times;</button>
-      </div>`).join('')}
-      <div class="row">
-        <input type="text" id="catName" placeholder="Category" maxlength="30">
-        <input type="number" id="catAmt" class="tight" style="max-width:130px" placeholder="Amount/mo" min="0" step="1">
-        <button class="btn ghost tight" data-act="cat-add">Add</button>
+      <div class="sec">
+        <h3>Fixed costs <span class="sub">· same every month</span></h3>
+        ${catRows(fixed) || '<p class="empty">Rent, phone, subscriptions — the bills that don’t move.</p>'}
+        ${fixed.length ? `<div class="subtotal"><span>Fixed total</span><b>${fmtMoney(fixedTotal())}/mo</b></div>` : ''}
+        ${addRow('fixed')}
       </div>
-      <div class="chips">${PRESETS.filter(p => !bud.categories.some(c => c.name === p))
-        .map(p => `<button class="chip" data-act="cat-preset" data-name="${p}">+ ${p}</button>`).join('')}</div>
-      <p class="hint">Planned savings = income − categories. “Pay yourself first”: make Savings its own auto-transfer, not what’s left over.</p>
-      <button class="btn" data-act="bud-save" style="margin-top:10px">Done</button>
-    </div>` : `<button class="btn ghost" data-act="bud-edit" style="margin-bottom:14px">Edit monthly plan</button>`;
-
-  if (!hasPlan) {
-    $('#view').innerHTML = editUi;
-  } else {
-    const spent = spentIn(mk);
-    const planT = plannedTotal();
-    const proj = projection();
-    const projEnd = proj.base.length ? proj.base[proj.base.length - 1] : 0;
-
-    const rows = bud.categories.map(c => {
-      const s = spentIn(mk, c.id);
-      const over = s > c.planned ? s - c.planned : 0;
-      const p = c.planned > 0 ? Math.min(100, 100 * s / c.planned) : (s > 0 ? 100 : 0);
-      return `<div class="bar-row">
-        <span class="name"><span class="t">${esc(c.name)}</span></span>
-        <span class="bar"><i style="width:${p}%;background:${over ? 'var(--critical)' : 'var(--seq)'}"></i></span>
-        <span class="pct" style="flex-basis:120px">${fmtMoney(s)} / ${fmtMoney(c.planned)}</span>
-        ${over ? `<span class="over">over by ${fmtMoney(over)}</span>` : ''}
-      </div>`;
-    }).join('');
-
-    const catName = id => { const c = bud.categories.find(x => x.id === id); return c ? c.name : '?'; };
-    const logs = bud.logs.filter(l => monthKeyOf(l.date) === mk)
-      .sort((a, b) => b.date.localeCompare(a.date) || (b.u || 0) - (a.u || 0)).slice(0, 8);
-    const logList = logs.map(l => `<li>
-      <span class="d">${fmt(l.date)}</span><span>${esc(catName(l.catId))}</span>
-      ${l.note ? `<span class="hint" style="margin:0">${esc(l.note)}</span>` : ''}
-      <span class="amt">${fmtMoney(l.amount)}</span>
-      <button class="icon tight" data-act="log-del" data-id="${l.id}" aria-label="delete expense">&times;</button>
-    </li>`).join('');
-
-    $('#view').innerHTML = `
-      ${editUi}
-      <div class="tiles">
-        <div class="tile"><div class="v">${fmtMoney(spent)}</div><div class="l">spent this month</div></div>
-        <div class="tile"><div class="v">${fmtMoney(planT - spent)}</div><div class="l">left in this month’s plan</div></div>
-        <div class="tile"><div class="v">${fmtMoney(bud.income - planT)}</div><div class="l">planned savings / month</div></div>
-        <div class="tile"><div class="v">${fmtMoney(projEnd)}</div><div class="l">projected by ${fmtY(endDate())}</div></div>
+      <div class="sec">
+        <h3>Variable costs <span class="sub">· budget a target, spending moves</span></h3>
+        ${catRows(variable) || '<p class="empty">Groceries, eating out, fun — what you actually steer month to month.</p>'}
+        ${variable.length ? `<div class="subtotal"><span>Variable budget</span><b>${fmtMoney(varPlanned)}/mo</b></div>` : ''}
+        ${addRow('variable')}
       </div>
-      <div class="card">
-        <h2>Log spending</h2>
+      <div class="sec">
+        <h3>One-off &amp; irregular <span class="sub">· outside the monthly plan</span></h3>
+        ${oneoffRows || '<p class="empty">Exam fees, flights, car repairs, a bonus — anything that hits once on a date.</p>'}
+        <div class="row" style="margin-top:8px">
+          <input type="date" id="ooDate" class="tight" style="max-width:150px" value="${t}" min="${t}">
+          <input type="text" id="ooName" placeholder="What is it?" maxlength="40">
+          <input type="number" id="ooAmt" class="tight" style="max-width:110px" placeholder="Amount" min="0" step="1">
+          <select id="ooKind" class="tight" style="max-width:110px">
+            <option value="cost">Cost</option><option value="income">Income</option>
+          </select>
+          <button class="btn ghost tight" data-act="oneoff-add">Add</button>
+        </div>
+      </div>
+      <div class="netline">
+        <span>Left over each month <span class="hint">income − fixed − variable</span></span>
+        <span class="nv" style="color:${net < 0 ? 'var(--critical)' : 'var(--good-text)'}">${fmtMoney(net)}</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>This month <span class="sub">· ${monthLabel(mk)}</span></h2>
+      <div class="sec">
+        <h3>Log spending</h3>
         <div class="row">
           <input type="number" id="logAmt" placeholder="0" min="0" step="0.01" style="max-width:110px" class="tight">
-          <select id="logCat">${bud.categories.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+          <select id="logCat">${bud.categories.length
+            ? bud.categories.map(c => `<option value="${c.id}">${esc(c.name)}${(c.kind || 'fixed') === 'fixed' ? ' (fixed)' : ''}</option>`).join('')
+            : '<option value="">add a category first</option>'}</select>
           <input type="text" id="logNote" placeholder="note (optional)" maxlength="60">
           <button class="btn tight" data-act="log-add">Add</button>
         </div>
         ${logList ? `<ul class="loglist">${logList}</ul>` : '<p class="empty">Nothing logged this month yet.</p>'}
       </div>
-      <div class="card">
-        <h2>This month vs plan</h2>
-        ${rows || '<p class="empty">Add categories to your plan first.</p>'}
+      <div class="sec">
+        <h3>Variable spending vs budget</h3>
+        ${varBars || '<p class="empty">Add variable categories above to track them here.</p>'}
+        ${fixed.length ? `<div class="subtotal"><span>Fixed costs (steady, not tracked here)</span><b>${fmtMoney(fixedTotal())}/mo</b></div>` : ''}
       </div>
-      <div class="card">
-        <h2>Savings projection <span class="sub">· scenario planning</span></h2>
-        <div class="legend" style="margin:0 0 8px">
-          <span class="k"><span class="sw" style="background:var(--s1)"></span>plan</span>
-          <span class="k"><span class="sw" style="background:repeating-linear-gradient(90deg,var(--s2) 0 6px,transparent 6px 10px)"></span>what-if scenario</span>
-        </div>
-        <div id="scenChart">${projChartHTML()}</div>
-        <p class="hint" id="scenSummary">${scenSummaryText()}</p>
-        ${bud.categories.map(c => `<div class="scen-row">
-          <span class="sn">${esc(c.name)}</span>
-          <input type="range" min="0" max="150" value="${scen[c.id] ?? 100}" data-scen="${c.id}" aria-label="scenario spending for ${esc(c.name)}">
-          <span class="sv" id="sv-${c.id}">${scen[c.id] ?? 100}% · ${fmtMoney(c.planned * ((scen[c.id] ?? 100) / 100))}/mo</span>
-        </div>`).join('')}
-        <div class="row" style="margin-top:8px">
-          <button class="btn ghost tight" data-act="scen-reset">Reset scenario</button>
-          <span class="hint" style="margin:0">Drag a category to “what if I spent this much instead” — the dashed line lands where you’d be by ${fmtY(endDate())}.</span>
-        </div>
-      </div>`;
-  }
+    </div>
+
+    <div class="card">
+      <h2>Cash projection</h2>
+      <div id="scenChart">${projChartHTML()}</div>
+      <p class="hint" id="scenSummary">${projSummaryText()}</p>
+      ${variable.length ? `
+        <div class="sec">
+          <h3>What if I spent differently? <span class="sub">· variable costs only</span></h3>
+          ${scenRows}
+          <div class="row" style="margin-top:8px">
+            <button class="btn ghost tight" data-act="scen-reset">Reset</button>
+            <span class="hint" style="margin:0">Fixed costs are excluded — they don’t move, so sliding them would model something that can’t happen.</span>
+          </div>
+        </div>` : ''}
+    </div>`;
 
   onViewInput = e => {
+    const plan = e.target.closest('[data-plan]');
+    if (plan) {
+      const f = plan.dataset.plan;
+      if (f === 'currency') bud.currency = (plan.value.trim() || '$').slice(0, 3);
+      else {
+        bud[f] = Number(plan.value) || 0;
+        if (f === 'cash') bud.cashDate = todayStr();
+      }
+      bud.u = Date.now();
+      save(); repaintBudgetTotals();
+      return;
+    }
+    const amt = e.target.closest('[data-catamt]');
+    if (amt) {
+      const c = bud.categories.find(x => x.id === amt.dataset.catamt);
+      if (c) { c.planned = Number(amt.value) || 0; c.u = Date.now(); bud.u = Date.now(); save(); repaintBudgetTotals(); }
+      return;
+    }
     const r = e.target.closest('[data-scen]');
-    if (!r) return;
-    scen[r.dataset.scen] = Number(r.value);
-    const c = bud.categories.find(x => x.id === r.dataset.scen);
-    $('#sv-' + c.id).textContent = r.value + '% · ' + fmtMoney(c.planned * (Number(r.value) / 100)) + '/mo';
-    $('#scenChart').innerHTML = projChartHTML();
-    $('#scenSummary').textContent = scenSummaryText();
-    wireTips();
+    if (r) {
+      scen[r.dataset.scen] = Number(r.value);
+      const c = bud.categories.find(x => x.id === r.dataset.scen);
+      $('#sv-' + c.id).textContent = r.value + '% · ' + fmtMoney(c.planned * (Number(r.value) / 100)) + '/mo';
+      repaintBudgetTotals();
+    }
   };
 
   onViewClick = e => {
     const el = e.target.closest('[data-act]');
     if (!el) return;
-    const act = el.dataset.act;
-    if (act === 'bud-edit') { budgetEditOpen = true; render(); }
-    else if (act === 'bud-save') {
-      commitPlanFields();
-      budgetEditOpen = false; save(); render();
-    }
-    else if (act === 'cat-add') {
-      commitPlanFields();
-      const name = $('#catName').value.trim();
-      const amt = Number($('#catAmt').value);
-      if (!name || !(amt >= 0)) return;
-      S.budget.categories.push({ id: uid(), name, planned: amt, u: Date.now() });
-      S.budget.u = Date.now(); save(); render();
+    const act = el.dataset.act, kind = el.dataset.kind;
+    if (act === 'cat-add') {
+      const name = $('#catName-' + kind).value.trim();
+      const amount = Number($('#catAmt-' + kind).value);
+      if (!name || !(amount >= 0)) return;
+      bud.categories.push({ id: uid(), name, planned: amount, kind, u: Date.now() });
+      bud.u = Date.now(); save(); render();
     }
     else if (act === 'cat-preset') {
-      $('#catName').value = el.dataset.name;
-      $('#catAmt').focus();
+      $('#catName-' + kind).value = el.dataset.name;
+      $('#catAmt-' + kind).focus();
     }
     else if (act === 'cat-del') {
-      commitPlanFields();
       S.trash[el.dataset.id] = Date.now();
-      S.budget.categories = S.budget.categories.filter(c => c.id !== el.dataset.id);
-      S.budget.u = Date.now(); save(); render();
+      bud.categories = bud.categories.filter(c => c.id !== el.dataset.id);
+      bud.u = Date.now(); save(); render();
+    }
+    else if (act === 'oneoff-add') {
+      const name = $('#ooName').value.trim();
+      const raw = Number($('#ooAmt').value);
+      const date = $('#ooDate').value;
+      if (!name || !(raw > 0) || !date) return;
+      const amount = $('#ooKind').value === 'income' ? -raw : raw;
+      bud.oneoffs.push({ id: uid(), date, name, amount, u: Date.now() });
+      bud.u = Date.now(); save(); render();
+    }
+    else if (act === 'oneoff-del') {
+      S.trash[el.dataset.id] = Date.now();
+      bud.oneoffs = bud.oneoffs.filter(o => o.id !== el.dataset.id);
+      bud.u = Date.now(); save(); render();
     }
     else if (act === 'log-add') {
-      const amt = Number($('#logAmt').value);
-      if (!(amt > 0) || !$('#logCat')) return;
-      S.budget.logs.push({ id: uid(), date: t, catId: $('#logCat').value, amount: amt, note: $('#logNote').value.trim(), u: Date.now() });
+      const amount = Number($('#logAmt').value);
+      const catId = $('#logCat').value;
+      if (!(amount > 0) || !catId) return;
+      bud.logs.push({ id: uid(), date: t, catId, amount, note: $('#logNote').value.trim(), u: Date.now() });
       save(); render();
     }
     else if (act === 'log-del') {
       S.trash[el.dataset.id] = Date.now();
-      S.budget.logs = S.budget.logs.filter(l => l.id !== el.dataset.id);
+      bud.logs = bud.logs.filter(l => l.id !== el.dataset.id);
       save(); render();
     }
     else if (act === 'scen-reset') { scen = {}; render(); }
   };
+  wireTips();
+}
+
+// Live-update the numbers that depend on the plan without re-rendering the
+// whole view — a full render would blur the input being typed into.
+function repaintBudgetTotals() {
+  const chart = $('#scenChart');
+  if (!chart) return;
+  chart.innerHTML = projChartHTML();
+  $('#scenSummary').textContent = projSummaryText();
+  const tiles = document.querySelectorAll('#view .tiles .tile .v');
+  if (tiles.length === 4) {
+    const net = monthlyNet(false);
+    const p = projection();
+    tiles[0].textContent = fmtMoney(S.budget.cash || 0);
+    tiles[1].textContent = fmtMoney(net);
+    tiles[1].style.color = net < 0 ? 'var(--critical)' : '';
+    tiles[2].textContent = fmtMoney(variableTotal(false) -
+      cats('variable').reduce((a, c) => a + spentIn(monthKeyOf(todayStr()), c.id), 0));
+    tiles[3].textContent = fmtMoney(p.base[p.base.length - 1]);
+  }
   wireTips();
 }
 
@@ -1511,7 +1675,7 @@ $('#importFile').addEventListener('change', async e => {
       throw new Error('not a Buddy backup');
     }
     if (confirm('Replace everything currently in the app with this backup?')) {
-      S = Object.assign(structuredClone(DEFAULT), data);
+      S = migrate(Object.assign(structuredClone(DEFAULT), data));
       save(); dlg.close(); render();
     }
   } catch (err) {
@@ -1583,11 +1747,13 @@ function mergeStates(a, b) {
   }
   const ab = a.budget || DEFAULT.budget, bb = b.budget || DEFAULT.budget;
   const bw = (bb.u || 0) > (ab.u || 0) ? bb : ab;
-  out.budget = {
-    currency: bw.currency || '$', income: bw.income || 0, u: bw.u || 0,
+  // spread the winning side first so fields added in later versions survive a
+  // merge with a device that predates them
+  out.budget = Object.assign({}, ab, bb, bw, {
     categories: mergeById(ab.categories, bb.categories),
+    oneoffs: mergeById(ab.oneoffs, bb.oneoffs),
     logs: mergeById(ab.logs, bb.logs)
-  };
+  });
   return out;
 }
 
@@ -1629,7 +1795,7 @@ async function syncNow() {
     let remote = null;
     try { remote = JSON.parse(remoteTxt); } catch (e) { /* empty or corrupt remote → overwrite */ }
     if (remote && typeof remote === 'object' && 'journal' in remote) {
-      S = mergeStates(S, Object.assign(structuredClone(DEFAULT), remote));
+      S = mergeStates(S, migrate(Object.assign(structuredClone(DEFAULT), remote)));
     }
     const mine = JSON.stringify(S);
     if (mine !== remoteTxt) {
@@ -1690,6 +1856,9 @@ document.addEventListener('visibilitychange', () => {
 setInterval(() => {
   if (S.startDate && todayStr() !== renderedDay) render();
 }, 60000);
+
+// persist an upgraded save immediately (sync helpers exist by now)
+if (upgradedOnLoad) save();
 
 render();
 paintSync();

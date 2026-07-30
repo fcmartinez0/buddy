@@ -26,11 +26,20 @@ a countdown to the end of the window stays in the header.
   check-ins for goals without them). A nudge appears when a goal has gone a
   week without a check-in. One-click templates cover networking,
   cybersecurity, gym, screen time, and saving money.
-- **Budget** — monthly income + planned spending per category, quick expense
-  logging, this-month-vs-plan bars with overspend warnings, and a cumulative
-  savings projection chart with **scenario sliders**: drag any category to
-  "what if I spent this much instead" and watch where the dashed what-if line
-  lands by the end of your window.
+- **Budget** — built around the distinction that actually matters:
+  - **Cash on hand** is the starting point, so the chart projects your real
+    balance rather than savings from zero.
+  - **Fixed costs** (rent, phone, insurance) — steady every month.
+  - **Variable costs** (groceries, eating out) — you budget a target and log
+    actual spending against it, with overspend warnings.
+  - **One-off & irregular** — dated items outside the monthly plan (exam fees,
+    flights, car repairs, or a bonus as negative), which land in the projection
+    in the month they occur.
+  - **What-if sliders** apply to variable costs only, since fixed costs can't
+    be slid. The projection runs forward from today's cash, prorating the
+    current month by the days left in it.
+
+  The plan edits inline and saves as you type — there is no edit mode.
 - **Journal** — one entry a day (more if you insist): mood, wins, free text,
   and tags linking the entry to goals. Weekly reviews land here too.
 
@@ -81,3 +90,9 @@ included in Settings → Export data backups.
 Stored in each browser under the `buddy-tracker-v1` localStorage key, plus the
 private gist when sync is on. Use **Settings → Export data** for a JSON backup
 and **Import data** to restore it.
+
+Saves from older versions are **migrated in place, never discarded** — new
+fields get defaults and the save is upgraded on load (older budget categories,
+which were a single flat monthly plan, become fixed costs). The sync merge
+preserves fields it doesn't recognize, so a device running an older build
+can't strip data written by a newer one.
